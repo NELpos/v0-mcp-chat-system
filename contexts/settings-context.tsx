@@ -21,19 +21,31 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   // Load tokens from localStorage on mount
   useEffect(() => {
-    const savedTokens = localStorage.getItem("mcp-tool-tokens")
-    if (savedTokens) {
-      try {
-        setToolTokens(JSON.parse(savedTokens))
-      } catch (error) {
-        console.error("Failed to parse saved tokens:", error)
+    try {
+      if (typeof window !== "undefined") {
+        const savedTokens = localStorage.getItem("mcp-tool-tokens")
+        if (savedTokens) {
+          const parsed = JSON.parse(savedTokens)
+          if (parsed && typeof parsed === "object") {
+            setToolTokens(parsed)
+          }
+        }
       }
+    } catch (error) {
+      console.error("Failed to parse saved tokens:", error)
+      setToolTokens({})
     }
   }, [])
 
   // Save tokens to localStorage when they change
   useEffect(() => {
-    localStorage.setItem("mcp-tool-tokens", JSON.stringify(toolTokens))
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mcp-tool-tokens", JSON.stringify(toolTokens))
+      }
+    } catch (error) {
+      console.error("Failed to save tokens:", error)
+    }
   }, [toolTokens])
 
   const updateToken = (tool: keyof ToolToken, token: string) => {
@@ -44,6 +56,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }
 
   const hasRequiredTokens = (toolId: string) => {
+    if (!toolId || !toolTokens) return false
+
     switch (toolId) {
       case "jira":
         return !!toolTokens.jira

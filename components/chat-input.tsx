@@ -15,7 +15,7 @@ interface ChatInputProps {
   handleSubmit: (e: FormEvent<HTMLFormElement>) => void
   isLoading: boolean
   activeTool: MCPTool
-  tools: MCPTool[]
+  tools?: MCPTool[]
   onToolChange: (toolId: string) => void
   disabled?: boolean
 }
@@ -26,10 +26,13 @@ export default function ChatInput({
   handleSubmit,
   isLoading,
   activeTool,
-  tools,
+  tools = [],
   onToolChange,
   disabled = false,
 }: ChatInputProps) {
+  // Ensure tools is an array
+  const toolsArray = Array.isArray(tools) ? tools : []
+
   return (
     <form onSubmit={handleSubmit} className="relative">
       <div className="flex items-center gap-2 mb-2">
@@ -37,20 +40,20 @@ export default function ChatInput({
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="flex items-center gap-1 h-8 text-xs">
               <Wrench size={14} />
-              <span>{activeTool.name}</span>
+              <span>{activeTool?.name || "Select Tool"}</span>
               <ChevronDown size={14} />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="p-0" align="start" side="top">
             <Command>
               <CommandGroup heading="Available MCP Tools">
-                {tools.map((tool) => (
+                {toolsArray.map((tool) => (
                   <CommandItem
                     key={tool.id}
                     onSelect={() => onToolChange(tool.id)}
                     className="flex items-center gap-2 text-sm"
                   >
-                    <div className={cn("mr-2", activeTool.id === tool.id ? "opacity-100" : "opacity-0")}>
+                    <div className={cn("mr-2", activeTool?.id === tool.id ? "opacity-100" : "opacity-0")}>
                       <Check size={16} />
                     </div>
                     <span>{tool.name}</span>
@@ -62,7 +65,8 @@ export default function ChatInput({
         </Popover>
 
         <div className="text-xs text-muted-foreground">
-          Using <span className="font-medium">{activeTool.name}</span> - {activeTool.description}
+          Using <span className="font-medium">{activeTool?.name || "Unknown Tool"}</span> -{" "}
+          {activeTool?.description || "No description"}
         </div>
       </div>
 
@@ -71,7 +75,9 @@ export default function ChatInput({
           value={input}
           onChange={handleInputChange}
           placeholder={
-            disabled ? `Configure ${activeTool.name} API token in settings first` : `Message with ${activeTool.name}...`
+            disabled
+              ? `Configure ${activeTool?.name || "tool"} API token in settings first`
+              : `Message with ${activeTool?.name || "AI"}...`
           }
           className="min-h-24 pr-12 resize-none"
           disabled={isLoading || disabled}

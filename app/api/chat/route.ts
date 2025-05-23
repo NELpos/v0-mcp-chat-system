@@ -11,7 +11,20 @@ export async function POST(req: Request) {
   // Create system message based on the active tool
   const systemMessage = `You are a helpful AI assistant with access to the ${tool.name} tool. 
   ${tool.description}. When appropriate, use this tool to provide better answers.
-  Always respond in a helpful, safe, and ethical manner.`
+  Always respond in a helpful, safe, and ethical manner.
+  
+  Format your responses using Markdown syntax for better readability:
+  - Use ## and ### for section headings
+  - Use * or - for bullet points
+  - Use 1. 2. 3. for numbered lists
+  - Use \`code\` for inline code
+  - Use \`\`\` for code blocks with language specification
+  - Use > for blockquotes
+  - Use **bold** and *italic* for emphasis
+  - Use [text](url) for links
+  - Use | tables | like | this | for tabular data
+  
+  Make your responses visually structured and easy to read.`
 
   try {
     // Use the AI SDK to stream the response

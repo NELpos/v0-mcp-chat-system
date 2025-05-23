@@ -8,14 +8,28 @@ import ChatInput from "@/components/chat-input"
 import { mcpTools } from "@/lib/mcp-tools"
 import { SettingsDialog } from "@/components/settings-dialog"
 import { useSettings } from "@/contexts/settings-context"
-import { AlertCircle } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle, Info } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function ChatInterface() {
-  const [activeTool, setActiveTool] = useState(mcpTools[0])
+  const [activeTool, setActiveTool] = useState(
+    mcpTools[0] || {
+      id: "default",
+      name: "Default",
+      description: "Default tool",
+      type: "default",
+      requiresAuth: false,
+    },
+  )
   const { hasRequiredTokens } = useSettings()
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const {
+    messages = [],
+    input,
+    handleInputChange,
+    handleSubmit,
+    isLoading,
+  } = useChat({
     api: "/api/chat",
     body: {
       activeTool: activeTool.id,
@@ -24,7 +38,9 @@ export default function ChatInterface() {
 
   const handleToolChange = (toolId: string) => {
     const tool = mcpTools.find((t) => t.id === toolId) || mcpTools[0]
-    setActiveTool(tool)
+    if (tool) {
+      setActiveTool(tool)
+    }
   }
 
   const needsToken = activeTool.requiresAuth && !hasRequiredTokens(activeTool.id)
@@ -42,6 +58,16 @@ export default function ChatInterface() {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               API token required for {activeTool.name}. Please configure it in settings.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {(!messages || messages.length === 0) && (
+          <Alert className="mb-4">
+            <Info className="h-4 w-4" />
+            <AlertTitle>Markdown Support</AlertTitle>
+            <AlertDescription>
+              AI responses support Markdown formatting including headings, lists, code blocks, tables, and more.
             </AlertDescription>
           </Alert>
         )}
