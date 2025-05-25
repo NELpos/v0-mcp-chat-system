@@ -10,16 +10,18 @@ type ToastProps = {
 
 export function toast({ title, description, duration = 3000 }: ToastProps) {
   // Create a custom event
-  const event = new CustomEvent("toast", {
-    detail: {
-      title,
-      description,
-      duration,
-    },
-  })
+  if (typeof window !== "undefined") {
+    const event = new CustomEvent("toast", {
+      detail: {
+        title,
+        description,
+        duration,
+      },
+    })
 
-  // Dispatch the event
-  window.dispatchEvent(event)
+    // Dispatch the event
+    window.dispatchEvent(event)
+  }
 }
 
 export function useToast() {
@@ -35,9 +37,14 @@ export function useToast() {
   }, [])
 
   useEffect(() => {
+    if (typeof window === "undefined") return
+
     const handleToast = (e: Event) => {
-      const { title, description, duration } = (e as CustomEvent).detail
-      addToast({ title, description, duration })
+      const customEvent = e as CustomEvent
+      if (customEvent.detail) {
+        const { title, description, duration } = customEvent.detail
+        addToast({ title, description, duration })
+      }
     }
 
     window.addEventListener("toast", handleToast)

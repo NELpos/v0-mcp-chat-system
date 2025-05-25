@@ -31,7 +31,16 @@ export default function ChatInput({
   disabled = false,
 }: ChatInputProps) {
   // Ensure tools is an array
-  const toolsArray = Array.isArray(tools) ? tools : []
+  const safeTools = Array.isArray(tools) ? tools : []
+
+  // Ensure activeTool is valid
+  const safeActiveTool = activeTool || {
+    id: "default",
+    name: "Default",
+    description: "Default tool",
+    type: "default",
+    requiresAuth: false,
+  }
 
   return (
     <form onSubmit={handleSubmit} className="relative">
@@ -40,20 +49,20 @@ export default function ChatInput({
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="flex items-center gap-1 h-8 text-xs">
               <Wrench size={14} />
-              <span>{activeTool?.name || "Select Tool"}</span>
+              <span>{safeActiveTool.name}</span>
               <ChevronDown size={14} />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="p-0" align="start" side="top">
             <Command>
               <CommandGroup heading="Available MCP Tools">
-                {toolsArray.map((tool) => (
+                {safeTools.map((tool) => (
                   <CommandItem
                     key={tool.id}
                     onSelect={() => onToolChange(tool.id)}
                     className="flex items-center gap-2 text-sm"
                   >
-                    <div className={cn("mr-2", activeTool?.id === tool.id ? "opacity-100" : "opacity-0")}>
+                    <div className={cn("mr-2", safeActiveTool.id === tool.id ? "opacity-100" : "opacity-0")}>
                       <Check size={16} />
                     </div>
                     <span>{tool.name}</span>
@@ -65,8 +74,7 @@ export default function ChatInput({
         </Popover>
 
         <div className="text-xs text-muted-foreground">
-          Using <span className="font-medium">{activeTool?.name || "Unknown Tool"}</span> -{" "}
-          {activeTool?.description || "No description"}
+          Using <span className="font-medium">{safeActiveTool.name}</span> - {safeActiveTool.description}
         </div>
       </div>
 
@@ -76,8 +84,8 @@ export default function ChatInput({
           onChange={handleInputChange}
           placeholder={
             disabled
-              ? `Configure ${activeTool?.name || "tool"} API token in settings first`
-              : `Message with ${activeTool?.name || "AI"}...`
+              ? `Configure ${safeActiveTool.name} API token in settings first`
+              : `Message with ${safeActiveTool.name}...`
           }
           className="min-h-24 pr-12 resize-none"
           disabled={isLoading || disabled}

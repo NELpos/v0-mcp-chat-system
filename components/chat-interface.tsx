@@ -12,44 +12,48 @@ import { AlertCircle, Info } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function ChatInterface() {
-  const [activeTool, setActiveTool] = useState(
-    mcpTools[0] || {
-      id: "default",
-      name: "Default",
-      description: "Default tool",
-      type: "default",
-      requiresAuth: false,
-    },
-  )
+  // Ensure mcpTools is an array and has at least one item
+  const safeMcpTools =
+    Array.isArray(mcpTools) && mcpTools.length > 0
+      ? mcpTools
+      : [
+          {
+            id: "default",
+            name: "Default",
+            description: "Default tool",
+            type: "default",
+            requiresAuth: false,
+          },
+        ]
+
+  const [activeTool, setActiveTool] = useState(safeMcpTools[0])
   const { hasRequiredTokens } = useSettings()
 
   const {
     messages = [],
-    input,
+    input = "",
     handleInputChange,
     handleSubmit,
-    isLoading,
+    isLoading = false,
   } = useChat({
     api: "/api/chat",
     body: {
-      activeTool: activeTool.id,
+      activeTool: activeTool?.id || "default",
     },
-  })
+  }) || {}
 
   const handleToolChange = (toolId: string) => {
-    const tool = mcpTools.find((t) => t.id === toolId) || mcpTools[0]
-    if (tool) {
-      setActiveTool(tool)
-    }
+    const tool = safeMcpTools.find((t) => t.id === toolId) || safeMcpTools[0]
+    setActiveTool(tool)
   }
 
-  const needsToken = activeTool.requiresAuth && !hasRequiredTokens(activeTool.id)
+  const needsToken = activeTool?.requiresAuth && !hasRequiredTokens(activeTool?.id || "")
 
   return (
     <Card className="w-full h-[calc(100vh-10rem)] flex flex-col">
       <CardContent className="flex flex-col h-full p-4 pt-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium">Chat with {activeTool.name}</h2>
+          <h2 className="text-lg font-medium">Chat with {activeTool?.name || "AI"}</h2>
           <SettingsDialog />
         </div>
 
@@ -57,7 +61,7 @@ export default function ChatInterface() {
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              API token required for {activeTool.name}. Please configure it in settings.
+              API token required for {activeTool?.name || "this tool"}. Please configure it in settings.
             </AlertDescription>
           </Alert>
         )}
@@ -65,9 +69,9 @@ export default function ChatInterface() {
         {(!messages || messages.length === 0) && (
           <Alert className="mb-4">
             <Info className="h-4 w-4" />
-            <AlertTitle>Markdown Support</AlertTitle>
+            <AlertTitle>Welcome to MCP Chat</AlertTitle>
             <AlertDescription>
-              AI responses support Markdown formatting including headings, lists, code blocks, tables, and more.
+              Start a conversation by typing a message below. You can select different MCP tools from the dropdown.
             </AlertDescription>
           </Alert>
         )}
@@ -77,11 +81,11 @@ export default function ChatInterface() {
         </div>
         <ChatInput
           input={input}
-          handleInputChange={handleInputChange}
-          handleSubmit={handleSubmit}
+          handleInputChange={handleInputChange || (() => {})}
+          handleSubmit={handleSubmit || (() => {})}
           isLoading={isLoading}
           activeTool={activeTool}
-          tools={mcpTools}
+          tools={safeMcpTools}
           onToolChange={handleToolChange}
           disabled={needsToken}
         />

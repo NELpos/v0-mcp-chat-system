@@ -56,7 +56,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }
 
   const hasRequiredTokens = (toolId: string) => {
-    if (!toolId || !toolTokens) return false
+    if (!toolId) return false
 
     switch (toolId) {
       case "jira":
