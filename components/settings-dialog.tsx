@@ -16,10 +16,11 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 
 export function SettingsDialog() {
-  const { toolTokens } = useSettings()
+  const { toolTokens, isLoaded } = useSettings()
   const [open, setOpen] = useState(false)
 
   const getConfiguredCount = () => {
+    if (!isLoaded) return 0
     return Object.values(toolTokens).filter((token) => token && token.length > 0).length
   }
 
@@ -44,30 +45,32 @@ export function SettingsDialog() {
               <p className="text-sm text-muted-foreground">API token configuration</p>
             </div>
             <Badge variant={getConfiguredCount() > 0 ? "default" : "secondary"}>
-              {getConfiguredCount()}/3 configured
+              {isLoaded ? `${getConfiguredCount()}/3 configured` : "Loading..."}
             </Badge>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>Jira</span>
-              <Badge variant={toolTokens.jira ? "default" : "outline"} className="text-xs">
-                {toolTokens.jira ? "✓" : "○"}
-              </Badge>
+          {isLoaded && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>Jira</span>
+                <Badge variant={toolTokens.jira ? "default" : "outline"} className="text-xs">
+                  {toolTokens.jira ? "✓" : "○"}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>Atlassian</span>
+                <Badge variant={toolTokens.atlassian ? "default" : "outline"} className="text-xs">
+                  {toolTokens.atlassian ? "✓" : "○"}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>Slack</span>
+                <Badge variant={toolTokens.slack ? "default" : "outline"} className="text-xs">
+                  {toolTokens.slack ? "✓" : "○"}
+                </Badge>
+              </div>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Atlassian</span>
-              <Badge variant={toolTokens.atlassian ? "default" : "outline"} className="text-xs">
-                {toolTokens.atlassian ? "✓" : "○"}
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Slack</span>
-              <Badge variant={toolTokens.slack ? "default" : "outline"} className="text-xs">
-                {toolTokens.slack ? "✓" : "○"}
-              </Badge>
-            </div>
-          </div>
+          )}
 
           <Button asChild className="w-full">
             <Link href="/settings" onClick={() => setOpen(false)}>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useChat } from "ai/react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import MessageList from "@/components/message-list"
 import ChatInput from "@/components/chat-input"
@@ -27,7 +27,16 @@ export default function ChatInterface() {
         ]
 
   const [activeTool, setActiveTool] = useState(safeMcpTools[0])
-  const { hasRequiredTokens } = useSettings()
+  const { hasRequiredTokens, toolTokens } = useSettings()
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(false)
+
+  // Wait for settings to load
+  useEffect(() => {
+    // Check if settings context has been initialized
+    if (toolTokens !== undefined) {
+      setIsSettingsLoaded(true)
+    }
+  }, [toolTokens])
 
   const {
     messages = [],
@@ -41,6 +50,20 @@ export default function ChatInterface() {
       activeTool: activeTool?.id || "default",
     },
   }) || {}
+
+  // Show loading state while settings are loading
+  if (!isSettingsLoaded) {
+    return (
+      <Card className="w-full h-[calc(100vh-10rem)] flex flex-col">
+        <CardContent className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <p className="text-sm text-muted-foreground">Loading chat interface...</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const handleToolChange = (toolId: string) => {
     const tool = safeMcpTools.find((t) => t.id === toolId) || safeMcpTools[0]

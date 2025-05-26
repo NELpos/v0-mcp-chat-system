@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,13 +13,24 @@ import { toast } from "@/components/ui/use-toast"
 import { Key, CheckCircle, AlertCircle, ExternalLink, Shield, Zap, MessageSquare, Building2 } from "lucide-react"
 
 export function SettingsInterface() {
-  const { toolTokens, updateToken } = useSettings()
+  const { toolTokens, updateToken, isLoaded } = useSettings()
   const [localTokens, setLocalTokens] = useState({
-    jira: toolTokens.jira || "",
-    atlassian: toolTokens.atlassian || "",
-    slack: toolTokens.slack || "",
+    jira: "",
+    atlassian: "",
+    slack: "",
   })
   const [isSaving, setIsSaving] = useState(false)
+
+  // Update local tokens when context tokens change (on initial load)
+  useEffect(() => {
+    if (isLoaded) {
+      setLocalTokens({
+        jira: toolTokens.jira || "",
+        atlassian: toolTokens.atlassian || "",
+        slack: toolTokens.slack || "",
+      })
+    }
+  }, [toolTokens, isLoaded])
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -86,6 +97,17 @@ export function SettingsInterface() {
       features: ["Send messages", "Access channels", "Manage users", "File sharing"],
     },
   ]
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-sm text-muted-foreground">Loading settings...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
