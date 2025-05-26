@@ -10,34 +10,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Settings } from "lucide-react"
+import { Settings, ExternalLink } from "lucide-react"
 import { useSettings } from "@/contexts/settings-context"
-import { toast } from "@/components/ui/use-toast"
+import { Badge } from "@/components/ui/badge"
+import Link from "next/link"
 
 export function SettingsDialog() {
-  const { toolTokens, updateToken } = useSettings()
+  const { toolTokens } = useSettings()
   const [open, setOpen] = useState(false)
-  const [localTokens, setLocalTokens] = useState({
-    jira: toolTokens.jira || "",
-    atlassian: toolTokens.atlassian || "",
-    slack: toolTokens.slack || "",
-  })
 
-  const handleSave = () => {
-    // Save all tokens
-    Object.entries(localTokens).forEach(([tool, token]) => {
-      updateToken(tool as keyof typeof toolTokens, token)
-    })
-
-    toast({
-      title: "Settings saved",
-      description: "Your API tokens have been saved successfully.",
-    })
-
-    setOpen(false)
+  const getConfiguredCount = () => {
+    return Object.values(toolTokens).filter((token) => token && token.length > 0).length
   }
 
   return (
@@ -45,75 +28,53 @@ export function SettingsDialog() {
       <DialogTrigger asChild>
         <Button variant="outline" size="icon">
           <Settings className="h-5 w-5" />
-          <span className="sr-only">Settings</span>
+          <span className="sr-only">Quick Settings</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>MCP Tool Settings</DialogTitle>
-          <DialogDescription>
-            Configure your API tokens for MCP tool integrations. These tokens will be stored locally in your browser.
-          </DialogDescription>
+          <DialogTitle>Quick Settings</DialogTitle>
+          <DialogDescription>View your current configuration status and access full settings.</DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="jira" className="mt-4">
-          <TabsList className="grid grid-cols-3">
-            <TabsTrigger value="jira">Jira</TabsTrigger>
-            <TabsTrigger value="atlassian">Atlassian</TabsTrigger>
-            <TabsTrigger value="slack">Slack</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="jira" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="jira-token">Jira API Token</Label>
-              <Input
-                id="jira-token"
-                type="password"
-                placeholder="Enter your Jira API token"
-                value={localTokens.jira}
-                onChange={(e) => setLocalTokens({ ...localTokens, jira: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                You can generate a Jira API token from your Atlassian account settings.
-              </p>
+        <div className="space-y-4 mt-4">
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <div>
+              <p className="font-medium">MCP Tools</p>
+              <p className="text-sm text-muted-foreground">API token configuration</p>
             </div>
-          </TabsContent>
+            <Badge variant={getConfiguredCount() > 0 ? "default" : "secondary"}>
+              {getConfiguredCount()}/3 configured
+            </Badge>
+          </div>
 
-          <TabsContent value="atlassian" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="atlassian-token">Atlassian API Token</Label>
-              <Input
-                id="atlassian-token"
-                type="password"
-                placeholder="Enter your Atlassian API token"
-                value={localTokens.atlassian}
-                onChange={(e) => setLocalTokens({ ...localTokens, atlassian: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                You can generate an Atlassian API token from your Atlassian account settings.
-              </p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span>Jira</span>
+              <Badge variant={toolTokens.jira ? "default" : "outline"} className="text-xs">
+                {toolTokens.jira ? "✓" : "○"}
+              </Badge>
             </div>
-          </TabsContent>
-
-          <TabsContent value="slack" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="slack-token">Slack API Token</Label>
-              <Input
-                id="slack-token"
-                type="password"
-                placeholder="Enter your Slack API token"
-                value={localTokens.slack}
-                onChange={(e) => setLocalTokens({ ...localTokens, slack: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                You can generate a Slack API token from the Slack API website.
-              </p>
+            <div className="flex items-center justify-between text-sm">
+              <span>Atlassian</span>
+              <Badge variant={toolTokens.atlassian ? "default" : "outline"} className="text-xs">
+                {toolTokens.atlassian ? "✓" : "○"}
+              </Badge>
             </div>
-          </TabsContent>
-        </Tabs>
+            <div className="flex items-center justify-between text-sm">
+              <span>Slack</span>
+              <Badge variant={toolTokens.slack ? "default" : "outline"} className="text-xs">
+                {toolTokens.slack ? "✓" : "○"}
+              </Badge>
+            </div>
+          </div>
 
-        <div className="flex justify-end mt-6">
-          <Button onClick={handleSave}>Save Settings</Button>
+          <Button asChild className="w-full">
+            <Link href="/settings" onClick={() => setOpen(false)}>
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open Full Settings
+            </Link>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

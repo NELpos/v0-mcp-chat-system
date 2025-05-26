@@ -16,8 +16,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Bot, Database } from "lucide-react"
-import { SettingsDialog } from "@/components/settings-dialog"
+import { Bot, Database, Settings } from "lucide-react"
 
 // Navigation items
 const navItems = [
@@ -32,6 +31,12 @@ const navItems = [
     url: "/rag",
     icon: Database,
     description: "Retrieval Augmented Generation with your documents",
+  },
+  {
+    title: "Settings",
+    url: "/settings",
+    icon: Settings,
+    description: "Configure API tokens and preferences",
   },
 ]
 
@@ -79,9 +84,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex items-center justify-between w-full px-2">
-              <span className="text-sm text-muted-foreground">Settings</span>
-              <SettingsDialog />
+            <div className="flex items-center justify-center w-full px-2">
+              <span className="text-sm text-muted-foreground">AI Chat System v1.0</span>
             </div>
           </SidebarMenuItem>
         </SidebarMenu>
