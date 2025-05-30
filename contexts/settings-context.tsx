@@ -6,6 +6,7 @@ interface ToolToken {
   jira?: string
   atlassian?: string
   slack?: string
+  github?: string
 }
 
 interface SettingsContextType {
@@ -83,6 +84,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         return !!toolTokens.atlassian
       case "slack":
         return !!toolTokens.slack
+      case "github":
+        return !!toolTokens.github
       default:
         return true
     }

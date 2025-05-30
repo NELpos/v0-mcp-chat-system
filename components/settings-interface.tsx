@@ -10,7 +10,17 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useSettings } from "@/contexts/settings-context"
 import { toast } from "@/components/ui/use-toast"
-import { Key, CheckCircle, AlertCircle, ExternalLink, Shield, Zap, MessageSquare, Building2 } from "lucide-react"
+import {
+  Key,
+  CheckCircle,
+  AlertCircle,
+  ExternalLink,
+  Shield,
+  Zap,
+  MessageSquare,
+  Building2,
+  Github,
+} from "lucide-react"
 
 export function SettingsInterface() {
   const { toolTokens, updateToken, isLoaded } = useSettings()
@@ -18,6 +28,7 @@ export function SettingsInterface() {
     jira: "",
     atlassian: "",
     slack: "",
+    github: "",
   })
   const [isSaving, setIsSaving] = useState(false)
 
@@ -28,6 +39,7 @@ export function SettingsInterface() {
         jira: toolTokens.jira || "",
         atlassian: toolTokens.atlassian || "",
         slack: toolTokens.slack || "",
+        github: toolTokens.github || "",
       })
     }
   }, [toolTokens, isLoaded])
@@ -55,6 +67,7 @@ export function SettingsInterface() {
       jira: "",
       atlassian: "",
       slack: "",
+      github: "",
     })
     toast({
       title: "Settings reset",
@@ -96,6 +109,16 @@ export function SettingsInterface() {
       docsUrl: "https://api.slack.com/authentication/token-types",
       features: ["Send messages", "Access channels", "Manage users", "File sharing"],
     },
+    {
+      id: "github",
+      name: "GitHub",
+      description: "Access repositories, issues, and pull requests",
+      icon: Github,
+      color: "bg-gray-800",
+      docsUrl:
+        "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token",
+      features: ["Repository access", "Issue management", "Pull request operations", "Code search"],
+    },
   ]
 
   if (!isLoaded) {
@@ -112,7 +135,7 @@ export function SettingsInterface() {
   return (
     <div className="space-y-6">
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {toolConfigs.map((tool) => {
           const tokenStatus = getTokenStatus(localTokens[tool.id as keyof typeof localTokens])
           const StatusIcon = tokenStatus.icon
@@ -168,7 +191,7 @@ export function SettingsInterface() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="jira" className="w-full">
-            <TabsList className="grid grid-cols-3 mb-6">
+            <TabsList className="grid grid-cols-4 mb-6">
               {toolConfigs.map((tool) => (
                 <TabsTrigger key={tool.id} value={tool.id} className="flex items-center gap-2">
                   <tool.icon className="h-4 w-4" />

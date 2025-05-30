@@ -29,6 +29,13 @@ export const mcpTools: MCPTool[] = [
     requiresAuth: true,
   },
   {
+    id: "github",
+    name: "GitHub",
+    description: "Access repositories, issues, and pull requests",
+    type: "development",
+    requiresAuth: true,
+  },
+  {
     id: "web-search",
     name: "Web Search",
     description: "Search the web for real-time information",

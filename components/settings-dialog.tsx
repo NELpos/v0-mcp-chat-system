@@ -45,7 +45,7 @@ export function SettingsDialog() {
               <p className="text-sm text-muted-foreground">API token configuration</p>
             </div>
             <Badge variant={getConfiguredCount() > 0 ? "default" : "secondary"}>
-              {isLoaded ? `${getConfiguredCount()}/3 configured` : "Loading..."}
+              {isLoaded ? `${getConfiguredCount()}/4 configured` : "Loading..."}
             </Badge>
           </div>
 
@@ -67,6 +67,12 @@ export function SettingsDialog() {
                 <span>Slack</span>
                 <Badge variant={toolTokens.slack ? "default" : "outline"} className="text-xs">
                   {toolTokens.slack ? "✓" : "○"}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>GitHub</span>
+                <Badge variant={toolTokens.github ? "default" : "outline"} className="text-xs">
+                  {toolTokens.github ? "✓" : "○"}
                 </Badge>
               </div>
             </div>

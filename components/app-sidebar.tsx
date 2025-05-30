@@ -16,7 +16,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Bot, Database, Settings } from "lucide-react"
+import { Bot, Database, Settings, FileText, Shield } from "lucide-react"
 
 // Navigation items
 const navItems = [
@@ -31,6 +31,18 @@ const navItems = [
     url: "/rag",
     icon: Database,
     description: "Retrieval Augmented Generation with your documents",
+  },
+  {
+    title: "Prompts",
+    url: "/prompts",
+    icon: FileText,
+    description: "Manage and version your AI prompts",
+  },
+  {
+    title: "Admin",
+    url: "/admin",
+    icon: Shield,
+    description: "API key management and system administration",
   },
   {
     title: "Settings",
