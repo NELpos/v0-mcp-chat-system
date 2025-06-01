@@ -5,12 +5,10 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
-import { Bot, User, Loader2, SendHorizontal, Database, FileText } from "lucide-react"
+import { Loader2, SendHorizontal, Database } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { Message } from "ai"
+import MessageList from "@/components/message-list"
 
 // Example messages to demonstrate RAG functionality
 const exampleMessages: Message[] = [
@@ -116,33 +114,7 @@ export function RAGChatInterface() {
           </div>
         ) : (
           <div className="space-y-4 px-1">
-            {messagesToShow.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "flex items-start gap-3 rounded-lg p-3",
-                  message.role === "user" ? "bg-muted/50" : "bg-background border border-border",
-                )}
-              >
-                <Avatar className={message.role === "user" ? "bg-primary" : "bg-green-500"}>
-                  <AvatarFallback>{message.role === "user" ? <User size={18} /> : <Bot size={18} />}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 overflow-hidden">
-                  <div className="prose dark:prose-invert max-w-none text-sm">{message.content}</div>
-                  {message.role === "assistant" && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      <Badge variant="secondary" className="text-xs">
-                        <Database className="w-3 h-3 mr-1" />
-                        RAG Response
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        <FileText className="w-3 h-3 mr-1" />4 sources found
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+            <MessageList messages={messagesToShow} />
           </div>
         )}
       </ScrollArea>

@@ -14,9 +14,12 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Bot, Database, Settings, FileText, Shield } from "lucide-react"
+import { Bot, Database, Settings, FileText, Shield, Key, Users, Boxes } from "lucide-react"
 
 // Navigation items
 const navItems = [
@@ -39,16 +42,32 @@ const navItems = [
     description: "Manage and version your AI prompts",
   },
   {
-    title: "Admin",
-    url: "/admin",
-    icon: Shield,
-    description: "API key management and system administration",
-  },
-  {
     title: "Settings",
     url: "/settings",
     icon: Settings,
     description: "Configure API tokens and preferences",
+  },
+]
+
+// Admin navigation items
+const adminItems = [
+  {
+    title: "API Keys",
+    url: "/admin/api-keys",
+    icon: Key,
+    description: "Manage API keys for system access",
+  },
+  {
+    title: "Tools Group",
+    url: "/admin/tools-group",
+    icon: Boxes,
+    description: "Manage tool groups for Generative AI",
+  },
+  {
+    title: "Permissions",
+    url: "/admin/permissions",
+    icon: Users,
+    description: "Manage user permissions for tool groups",
   },
 ]
 
@@ -89,6 +108,31 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Administration</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname.startsWith("/admin")}>
+                  <Link href="/admin/api-keys">
+                    <Shield />
+                    <span>Admin</span>
+                  </Link>
+                </SidebarMenuButton>
+                <SidebarMenuSub>
+                  {adminItems.map((item) => (
+                    <SidebarMenuSubItem key={item.title}>
+                      <SidebarMenuSubButton asChild isActive={pathname === item.url}>
+                        <Link href={item.url}>{item.title}</Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
