@@ -51,6 +51,7 @@ export function MCPChatInterface() {
     handleSubmit,
     isLoading = false,
     setMessages,
+    stop,
   } = useAIChat({
     api: "/api/chat",
     body: {
@@ -148,6 +149,12 @@ export function MCPChatInterface() {
     handleSubmit(e)
   }
 
+  const handleStop = () => {
+    if (stop) {
+      stop()
+    }
+  }
+
   const needsToken = activeTool?.requiresAuth && !hasRequiredTokens(activeTool?.id || "")
 
   return (
@@ -200,6 +207,7 @@ export function MCPChatInterface() {
           tools={safeMcpTools}
           onToolChange={handleToolChange}
           disabled={needsToken}
+          onStop={handleStop}
         />
       </CardContent>
     </Card>

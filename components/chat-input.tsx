@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandGroup, CommandItem } from "@/components/ui/command"
-import { Check, ChevronDown, Loader2, SendHorizontal, Wrench } from "lucide-react"
+import { Check, ChevronDown, Loader2, SendHorizontal, Wrench, Square } from "lucide-react"
 import type { MCPTool } from "@/lib/mcp-tools"
 import { cn } from "@/lib/utils"
 
@@ -18,6 +18,7 @@ interface ChatInputProps {
   tools?: MCPTool[]
   onToolChange: (toolId: string) => void
   disabled?: boolean
+  onStop?: () => void
 }
 
 export default function ChatInput({
@@ -29,6 +30,7 @@ export default function ChatInput({
   tools = [],
   onToolChange,
   disabled = false,
+  onStop,
 }: ChatInputProps) {
   // Ensure tools is an array
   const safeTools = Array.isArray(tools) ? tools : []
@@ -87,7 +89,7 @@ export default function ChatInput({
               ? `Configure ${safeActiveTool.name} API token in settings first`
               : `Message with ${safeActiveTool.name}...`
           }
-          className="min-h-24 pr-12 resize-none"
+          className="min-h-24 pr-24 resize-none"
           disabled={isLoading || disabled}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !disabled) {
@@ -96,14 +98,30 @@ export default function ChatInput({
             }
           }}
         />
-        <Button
-          size="icon"
-          type="submit"
-          disabled={isLoading || input.trim() === "" || disabled}
-          className="absolute right-2 bottom-2"
-        >
-          {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizontal className="h-5 w-5" />}
-        </Button>
+
+        <div className="absolute right-2 bottom-2 flex gap-1">
+          {isLoading && onStop && (
+            <Button
+              size="icon"
+              type="button"
+              variant="outline"
+              onClick={onStop}
+              className="h-10 w-10"
+              title="Stop generation"
+            >
+              <Square className="h-4 w-4" />
+            </Button>
+          )}
+
+          <Button
+            size="icon"
+            type="submit"
+            disabled={isLoading || input.trim() === "" || disabled}
+            className="h-10 w-10"
+          >
+            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizontal className="h-5 w-5" />}
+          </Button>
+        </div>
       </div>
     </form>
   )

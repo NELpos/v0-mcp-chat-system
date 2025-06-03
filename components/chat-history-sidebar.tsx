@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +32,7 @@ import {
   Edit,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react"
 import { useChat } from "@/contexts/chat-context"
 import { mcpTools } from "@/lib/mcp-tools"
@@ -52,16 +52,57 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null)
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState("")
+  const [displayedCount, setDisplayedCount] = useState(5)
+  const [isLoading, setIsLoading] = useState(false)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
 
-  const filteredSessions = sessions.filter(
+  const allFilteredSessions = sessions.filter(
     (session) =>
       session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       session.description?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  const getToolIcon = (toolId: string) => {
+  const filteredSessions = allFilteredSessions.slice(0, displayedCount)
+  const hasMore = displayedCount < allFilteredSessions.length
+
+  // Reset displayed count when search term changes
+  useEffect(() => {
+    setDisplayedCount(5)
+  }, [searchTerm])
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading) {
+          loadMore()
+        }
+      },
+      { threshold: 0.1 },
+    )
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [hasMore, isLoading])
+
+  const loadMore = useCallback(() => {
+    if (isLoading || !hasMore) return
+
+    setIsLoading(true)
+    // Simulate loading delay
+    setTimeout(() => {
+      setDisplayedCount((prev) => Math.min(prev + 5, allFilteredSessions.length))
+      setIsLoading(false)
+    }, 300)
+  }, [isLoading, hasMore, allFilteredSessions.length])
+
+  const getToolName = (toolId: string) => {
     const tool = mcpTools.find((t) => t.id === toolId)
-    return tool?.name.charAt(0) || "?"
+    return tool?.name || "Unknown Tool"
   }
 
   const getToolColor = (toolId: string) => {
@@ -123,11 +164,7 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
               className="w-full"
               title={session.title}
             >
-              <div
-                className={`w-3 h-3 rounded-full ${getToolColor(session.toolId)} text-white text-xs flex items-center justify-center`}
-              >
-                {getToolIcon(session.toolId)}
-              </div>
+              <MessageSquare className="h-3 w-3" />
             </Button>
           ))}
         </div>
@@ -136,13 +173,14 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
   }
 
   return (
-    <Card className="w-80 h-full border-r rounded-none">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
+    <div className="w-80 h-full border-r bg-background flex flex-col">
+      {/* Header */}
+      <div className="border-b bg-background p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 text-lg font-semibold">
             <MessageSquare className="h-5 w-5" />
             Chat History
-          </CardTitle>
+          </div>
           <div className="flex gap-1">
             <Button variant="ghost" size="sm" onClick={onNewChat}>
               <Plus className="h-4 w-4" />
@@ -163,10 +201,11 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
             className="pl-10"
           />
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="p-0 h-[calc(100%-8rem)]">
-        <ScrollArea className="h-full">
+      {/* Content */}
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full" ref={scrollAreaRef}>
           <div className="space-y-1 p-3">
             {filteredSessions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -177,89 +216,122 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
                 </Button>
               </div>
             ) : (
-              filteredSessions.map((session) => (
-                <div
-                  key={session.id}
-                  className={cn(
-                    "group relative p-3 rounded-lg cursor-pointer transition-colors",
-                    currentSession?.id === session.id ? "bg-primary/10 border border-primary/20" : "hover:bg-muted/50",
-                  )}
-                  onClick={() => loadSession(session.id)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div
-                          className={`w-4 h-4 rounded-full ${getToolColor(session.toolId)} text-white text-xs flex items-center justify-center`}
-                        >
-                          {getToolIcon(session.toolId)}
+              <>
+                {filteredSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className={cn(
+                      "group relative p-3 rounded-lg cursor-pointer transition-colors",
+                      currentSession?.id === session.id
+                        ? "bg-primary/10 border border-primary/20"
+                        : "hover:bg-muted/50",
+                    )}
+                    onClick={() => loadSession(session.id)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          {editingSessionId === session.id ? (
+                            <Input
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              onBlur={handleSaveTitle}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSaveTitle()
+                                if (e.key === "Escape") {
+                                  setEditingSessionId(null)
+                                  setEditTitle("")
+                                }
+                              }}
+                              className="h-6 text-sm font-medium"
+                              autoFocus
+                            />
+                          ) : (
+                            <h3 className="font-medium text-sm truncate">{session.title}</h3>
+                          )}
                         </div>
-                        {editingSessionId === session.id ? (
-                          <Input
-                            value={editTitle}
-                            onChange={(e) => setEditTitle(e.target.value)}
-                            onBlur={handleSaveTitle}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleSaveTitle()
-                              if (e.key === "Escape") {
-                                setEditingSessionId(null)
-                                setEditTitle("")
-                              }
-                            }}
-                            className="h-6 text-sm font-medium"
-                            autoFocus
-                          />
-                        ) : (
-                          <h3 className="font-medium text-sm truncate">{session.title}</h3>
+
+                        {session.description && (
+                          <p className="text-xs text-muted-foreground truncate mb-2">{session.description}</p>
                         )}
+
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                          <Clock className="h-3 w-3" />
+                          <span>{session.updatedAt.toLocaleDateString()}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {session.messageCount} messages
+                          </Badge>
+                        </div>
+
+                        {/* Tool name display */}
+                        <div className="flex items-center gap-1">
+                          <div className={`w-2 h-2 rounded-full ${getToolColor(session.toolId)}`} />
+                          <span className="text-xs text-muted-foreground">{getToolName(session.toolId)}</span>
+                        </div>
                       </div>
 
-                      {session.description && (
-                        <p className="text-xs text-muted-foreground truncate mb-2">{session.description}</p>
-                      )}
-
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span>{session.updatedAt.toLocaleDateString()}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {session.messageCount} messages
-                        </Badge>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditTitle(session)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => setDeleteSessionId(session.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEditTitle(session)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => setDeleteSessionId(session.id)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
-                </div>
-              ))
+                ))}
+
+                {/* Load more trigger */}
+                {hasMore && (
+                  <div ref={loadMoreRef} className="flex justify-center py-4">
+                    {isLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading more chats...
+                      </div>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={loadMore}
+                        className="text-sm text-muted-foreground hover:text-foreground"
+                      >
+                        Load more chats
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {/* End indicator */}
+                {!hasMore && allFilteredSessions.length > 5 && (
+                  <div className="text-center py-4 text-xs text-muted-foreground">
+                    All {allFilteredSessions.length} chats loaded
+                  </div>
+                )}
+              </>
             )}
           </div>
         </ScrollArea>
-      </CardContent>
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteSessionId} onOpenChange={() => setDeleteSessionId(null)}>
@@ -286,6 +358,6 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </div>
   )
 }
