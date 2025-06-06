@@ -34,20 +34,40 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Plus, Search, MoreHorizontal, Boxes, PenToolIcon as Tool, Edit, Trash2, Check } from "lucide-react"
-import { mcpTools } from "@/lib/mcp-tools"
-import type { ToolGroup } from "@/types/tool-group"
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Boxes,
+  PenToolIcon as Tool,
+  Edit,
+  Trash2,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Server,
+  CheckSquare,
+  Square,
+} from "lucide-react"
+import { mcpServers } from "@/lib/mcp-servers"
+import type { ToolGroup, SelectedTool } from "@/types/tool-group"
 import { toast } from "@/components/ui/use-toast"
 
 // Mock data for tool groups
 const mockToolGroups: ToolGroup[] = [
   {
     id: "group-1",
-    name: "Development Tools",
+    name: "Development Workflow",
     description: "Tools for software development and code management",
-    tools: [
-      mcpTools.find((t) => t.id === "github") || mcpTools[0],
-      mcpTools.find((t) => t.id === "code-interpreter") || mcpTools[0],
+    selectedTools: [
+      { serverId: "github", toolId: "create-repository", serverName: "GitHub", toolName: "Create Repository" },
+      { serverId: "github", toolId: "create-issue", serverName: "GitHub", toolName: "Create Issue" },
+      {
+        serverId: "code-interpreter",
+        toolId: "execute-python",
+        serverName: "Code Interpreter",
+        toolName: "Execute Python",
+      },
     ],
     createdAt: new Date("2024-01-15"),
     updatedAt: new Date("2024-01-20"),
@@ -55,25 +75,17 @@ const mockToolGroups: ToolGroup[] = [
   },
   {
     id: "group-2",
-    name: "Productivity Suite",
+    name: "Project Management",
     description: "Tools for project management and team collaboration",
-    tools: [
-      mcpTools.find((t) => t.id === "jira") || mcpTools[0],
-      mcpTools.find((t) => t.id === "atlassian") || mcpTools[0],
-      mcpTools.find((t) => t.id === "slack") || mcpTools[0],
+    selectedTools: [
+      { serverId: "jira", toolId: "create-issue", serverName: "Jira", toolName: "Create Issue" },
+      { serverId: "jira", toolId: "search-issues", serverName: "Jira", toolName: "Search Issues" },
+      { serverId: "slack", toolId: "send-message", serverName: "Slack", toolName: "Send Message" },
+      { serverId: "atlassian", toolId: "create-page", serverName: "Atlassian", toolName: "Create Page" },
     ],
     createdAt: new Date("2024-01-10"),
     updatedAt: new Date("2024-01-18"),
     isActive: true,
-  },
-  {
-    id: "group-3",
-    name: "Research Tools",
-    description: "Tools for information gathering and analysis",
-    tools: [mcpTools.find((t) => t.id === "web-search") || mcpTools[0]],
-    createdAt: new Date("2024-01-05"),
-    updatedAt: new Date("2024-01-12"),
-    isActive: false,
   },
 ]
 
@@ -84,12 +96,13 @@ export function ToolGroupManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null)
+  const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set())
 
   // Form state
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    selectedTools: [] as string[],
+    selectedTools: new Set<string>(),
   })
 
   const filteredGroups = toolGroups.filter(
@@ -102,18 +115,23 @@ export function ToolGroupManager() {
     setFormData({
       name: "",
       description: "",
-      selectedTools: [],
+      selectedTools: new Set(),
     })
+    setExpandedServers(new Set())
     setIsCreateDialogOpen(true)
   }
 
   const handleEditGroup = (group: ToolGroup) => {
     setSelectedGroup(group)
+    const selectedToolIds = new Set(group.selectedTools.map((t) => `${t.serverId}:${t.toolId}`))
     setFormData({
       name: group.name,
       description: group.description,
-      selectedTools: group.tools.map((tool) => tool.id),
+      selectedTools: selectedToolIds,
     })
+    // Expand servers that have selected tools
+    const serversWithSelectedTools = new Set(group.selectedTools.map((t) => t.serverId))
+    setExpandedServers(serversWithSelectedTools)
     setIsEditDialogOpen(true)
   }
 
@@ -127,7 +145,7 @@ export function ToolGroupManager() {
       return
     }
 
-    if (formData.selectedTools.length === 0) {
+    if (formData.selectedTools.size === 0) {
       toast({
         title: "Error",
         description: "Please select at least one tool",
@@ -136,7 +154,18 @@ export function ToolGroupManager() {
       return
     }
 
-    const selectedToolObjects = mcpTools.filter((tool) => formData.selectedTools.includes(tool.id))
+    // Convert selected tools to SelectedTool objects
+    const selectedToolObjects: SelectedTool[] = Array.from(formData.selectedTools).map((toolKey) => {
+      const [serverId, toolId] = toolKey.split(":")
+      const server = mcpServers.find((s) => s.id === serverId)!
+      const tool = server.tools.find((t) => t.id === toolId)!
+      return {
+        serverId,
+        toolId,
+        serverName: server.name,
+        toolName: tool.name,
+      }
+    })
 
     if (isCreateDialogOpen) {
       // Create new group
@@ -144,7 +173,7 @@ export function ToolGroupManager() {
         id: `group-${Date.now()}`,
         name: formData.name,
         description: formData.description,
-        tools: selectedToolObjects,
+        selectedTools: selectedToolObjects,
         createdAt: new Date(),
         updatedAt: new Date(),
         isActive: true,
@@ -166,7 +195,7 @@ export function ToolGroupManager() {
                 ...group,
                 name: formData.name,
                 description: formData.description,
-                tools: selectedToolObjects,
+                selectedTools: selectedToolObjects,
                 updatedAt: new Date(),
               }
             : group,
@@ -204,12 +233,89 @@ export function ToolGroupManager() {
     })
   }
 
-  const handleToolSelection = (toolId: string, checked: boolean) => {
+  const handleToolSelection = (serverId: string, toolId: string, checked: boolean) => {
+    const toolKey = `${serverId}:${toolId}`
+    setFormData((prev) => {
+      const newSelectedTools = new Set(prev.selectedTools)
+      if (checked) {
+        newSelectedTools.add(toolKey)
+      } else {
+        newSelectedTools.delete(toolKey)
+      }
+      return {
+        ...prev,
+        selectedTools: newSelectedTools,
+      }
+    })
+  }
+
+  const handleServerToggle = (serverId: string) => {
+    const server = mcpServers.find((s) => s.id === serverId)!
+    const serverToolKeys = server.tools.map((tool) => `${serverId}:${tool.id}`)
+    const allSelected = serverToolKeys.every((key) => formData.selectedTools.has(key))
+
+    setFormData((prev) => {
+      const newSelectedTools = new Set(prev.selectedTools)
+      if (allSelected) {
+        // Deselect all tools from this server
+        serverToolKeys.forEach((key) => newSelectedTools.delete(key))
+      } else {
+        // Select all tools from this server
+        serverToolKeys.forEach((key) => newSelectedTools.add(key))
+      }
+      return {
+        ...prev,
+        selectedTools: newSelectedTools,
+      }
+    })
+  }
+
+  const handleSelectAll = () => {
+    const allToolKeys = mcpServers.flatMap((server) => server.tools.map((tool) => `${server.id}:${tool.id}`))
+    const allSelected = allToolKeys.every((key) => formData.selectedTools.has(key))
+
     setFormData((prev) => ({
       ...prev,
-      selectedTools: checked ? [...prev.selectedTools, toolId] : prev.selectedTools.filter((id) => id !== toolId),
+      selectedTools: allSelected ? new Set() : new Set(allToolKeys),
     }))
   }
+
+  const toggleServerExpansion = (serverId: string) => {
+    setExpandedServers((prev) => {
+      const newExpanded = new Set(prev)
+      if (newExpanded.has(serverId)) {
+        newExpanded.delete(serverId)
+      } else {
+        newExpanded.add(serverId)
+      }
+      return newExpanded
+    })
+  }
+
+  const getServerSelectionState = (serverId: string) => {
+    const server = mcpServers.find((s) => s.id === serverId)!
+    const serverToolKeys = server.tools.map((tool) => `${serverId}:${tool.id}`)
+    const selectedCount = serverToolKeys.filter((key) => formData.selectedTools.has(key)).length
+
+    if (selectedCount === 0) return "none"
+    if (selectedCount === serverToolKeys.length) return "all"
+    return "partial"
+  }
+
+  const getServerTypeColor = (type: string) => {
+    const colors = {
+      productivity: "bg-blue-100 text-blue-800",
+      communication: "bg-green-100 text-green-800",
+      development: "bg-purple-100 text-purple-800",
+      research: "bg-orange-100 text-orange-800",
+      automation: "bg-red-100 text-red-800",
+    }
+    return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800"
+  }
+
+  const allToolKeys = mcpServers.flatMap((server) => server.tools.map((tool) => `${server.id}:${tool.id}`))
+  const allSelected = allToolKeys.length > 0 && allToolKeys.every((key) => formData.selectedTools.has(key))
+  const someSelected = allToolKeys.some((key) => formData.selectedTools.has(key))
 
   return (
     <div className="space-y-6">
@@ -266,21 +372,28 @@ export function ToolGroupManager() {
                           {/* Description */}
                           <p className="text-sm text-muted-foreground">{group.description}</p>
 
-                          {/* Tools */}
-                          <div className="flex flex-wrap gap-2 mt-4">
-                            {group.tools.map((tool) => (
-                              <Badge key={tool.id} variant="outline" className="flex items-center gap-1 py-1">
-                                <Tool className="h-3 w-3" />
-                                {tool.name}
-                              </Badge>
-                            ))}
+                          {/* Selected Tools */}
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium">Selected Tools ({group.selectedTools.length})</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {group.selectedTools.map((tool) => (
+                                <Badge
+                                  key={`${tool.serverId}:${tool.toolId}`}
+                                  variant="outline"
+                                  className="flex items-center gap-1 py-1"
+                                >
+                                  <Server className="h-3 w-3" />
+                                  {tool.serverName}: {tool.toolName}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
 
                           {/* Metadata */}
                           <div className="flex items-center gap-4 text-xs text-muted-foreground mt-4">
                             <span>Created: {group.createdAt.toLocaleDateString()}</span>
                             <span>Updated: {group.updatedAt.toLocaleDateString()}</span>
-                            <span>Tools: {group.tools.length}</span>
+                            <span>Tools: {group.selectedTools.length}</span>
                           </div>
                         </div>
 
@@ -339,67 +452,163 @@ export function ToolGroupManager() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[800px] h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>{isCreateDialogOpen ? "Create Tool Group" : "Edit Tool Group"}</DialogTitle>
             <DialogDescription>
               {isCreateDialogOpen
-                ? "Create a new group of tools for Generative AI tool calling capabilities."
-                : "Edit this tool group's details and included tools."}
+                ? "Create a new group by selecting MCP servers and their specific tools."
+                : "Edit this tool group's details and selected tools."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Group Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter group name"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Describe the purpose of this tool group"
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <Label>Select Tools</Label>
-              <div className="border rounded-md p-4 max-h-[200px] overflow-y-auto">
-                <div className="space-y-3">
-                  {mcpTools.map((tool) => (
-                    <div key={tool.id} className="flex items-start space-x-3">
-                      <Checkbox
-                        id={`tool-${tool.id}`}
-                        checked={formData.selectedTools.includes(tool.id)}
-                        onCheckedChange={(checked) => handleToolSelection(tool.id, checked as boolean)}
-                      />
-                      <div className="grid gap-1.5 leading-none">
-                        <label
-                          htmlFor={`tool-${tool.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {tool.name}
-                        </label>
-                        <p className="text-xs text-muted-foreground">{tool.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+          <div className="flex-1 overflow-hidden">
+            <div className="space-y-4 py-4 h-full overflow-y-auto pr-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Group Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter group name"
+                />
               </div>
-              <p className="text-xs text-muted-foreground">Selected: {formData.selectedTools.length} tools</p>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe the purpose of this tool group"
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-3 flex-1 min-h-0 flex flex-col">
+                <div className="flex items-center justify-between flex-shrink-0">
+                  <Label>Select MCP Servers and Tools</Label>
+                  <Button variant="outline" size="sm" onClick={handleSelectAll} className="flex items-center gap-2">
+                    {allSelected ? (
+                      <>
+                        <Square className="h-4 w-4" />
+                        Deselect All
+                      </>
+                    ) : (
+                      <>
+                        <CheckSquare className="h-4 w-4" />
+                        Select All
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                <div className="border rounded-md p-4 flex-1 min-h-0 overflow-y-auto">
+                  <div className="space-y-4">
+                    {mcpServers.map((server) => {
+                      const selectionState = getServerSelectionState(server.id)
+                      const isExpanded = expandedServers.has(server.id)
+                      const selectedToolsCount = server.tools.filter((tool) =>
+                        formData.selectedTools.has(`${server.id}:${tool.id}`),
+                      ).length
+
+                      return (
+                        <div key={server.id} className="space-y-2">
+                          {/* Server Header */}
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={selectionState === "all"}
+                                ref={(el) => {
+                                  if (el) {
+                                    el.indeterminate = selectionState === "partial"
+                                  }
+                                }}
+                                onCheckedChange={() => handleServerToggle(server.id)}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleServerExpansion(server.id)}
+                                className="p-0 h-auto"
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <Server className="h-4 w-4" />
+                                <span className="font-medium">{server.name}</span>
+                                <Badge className={getServerTypeColor(server.type)}>{server.type}</Badge>
+                                {server.requiresAuth && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Auth Required
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">{server.description}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {selectedToolsCount} of {server.tools.length} tools selected
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Server Tools */}
+                          {isExpanded && (
+                            <div className="ml-6 space-y-2">
+                              {server.tools.map((tool) => {
+                                const toolKey = `${server.id}:${tool.id}`
+                                const isSelected = formData.selectedTools.has(toolKey)
+
+                                return (
+                                  <div key={tool.id} className="flex items-start gap-3 p-2 rounded border">
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onCheckedChange={(checked) =>
+                                        handleToolSelection(server.id, tool.id, checked as boolean)
+                                      }
+                                    />
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <Tool className="h-3 w-3" />
+                                        <span className="text-sm font-medium">{tool.name}</span>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground mt-1">{tool.description}</p>
+                                      {tool.parameters.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                          {tool.parameters.map((param) => (
+                                            <Badge key={param} variant="secondary" className="text-xs">
+                                              {param}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground flex-shrink-0">
+                  Selected: {formData.selectedTools.size} tools from{" "}
+                  {new Set(Array.from(formData.selectedTools).map((key) => key.split(":")[0])).size} servers
+                </p>
+              </div>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button
               variant="outline"
               onClick={() => {

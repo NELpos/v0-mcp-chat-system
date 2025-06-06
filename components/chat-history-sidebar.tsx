@@ -35,7 +35,6 @@ import {
   Loader2,
 } from "lucide-react"
 import { useChat } from "@/contexts/chat-context"
-import { mcpTools } from "@/lib/mcp-tools"
 import type { ChatSession } from "@/types/chat"
 import { toast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
@@ -100,23 +99,6 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
     }, 300)
   }, [isLoading, hasMore, allFilteredSessions.length])
 
-  const getToolName = (toolId: string) => {
-    const tool = mcpTools.find((t) => t.id === toolId)
-    return tool?.name || "Unknown Tool"
-  }
-
-  const getToolColor = (toolId: string) => {
-    const colors: Record<string, string> = {
-      jira: "bg-blue-500",
-      atlassian: "bg-indigo-500",
-      slack: "bg-green-500",
-      github: "bg-gray-800",
-      "web-search": "bg-orange-500",
-      "code-interpreter": "bg-purple-500",
-    }
-    return colors[toolId] || "bg-gray-500"
-  }
-
   const handleEditTitle = (session: ChatSession) => {
     setEditingSessionId(session.id)
     setEditTitle(session.title)
@@ -173,7 +155,7 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
   }
 
   return (
-    <div className="w-80 h-full border-r bg-background flex flex-col">
+    <div className="w-96 h-full border-r bg-background flex flex-col">
       {/* Header */}
       <div className="border-b bg-background p-4">
         <div className="flex items-center justify-between mb-3">
@@ -206,7 +188,7 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full" ref={scrollAreaRef}>
-          <div className="space-y-1 p-3">
+          <div className="space-y-1 p-4">
             {filteredSessions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -221,7 +203,7 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
                   <div
                     key={session.id}
                     className={cn(
-                      "group relative p-3 rounded-lg cursor-pointer transition-colors",
+                      "group relative p-4 rounded-lg cursor-pointer transition-colors",
                       currentSession?.id === session.id
                         ? "bg-primary/10 border border-primary/20"
                         : "hover:bg-muted/50",
@@ -229,8 +211,8 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
                     onClick={() => loadSession(session.id)}
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                      <div className="flex-1 min-w-0 pr-3">
+                        <div className="mb-3">
                           {editingSessionId === session.id ? (
                             <Input
                               value={editTitle}
@@ -251,22 +233,14 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
                           )}
                         </div>
 
-                        {session.description && (
-                          <p className="text-xs text-muted-foreground truncate mb-2">{session.description}</p>
-                        )}
-
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                          <Clock className="h-3 w-3" />
-                          <span>{session.updatedAt.toLocaleDateString()}</span>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{session.updatedAt.toLocaleDateString()}</span>
+                          </div>
                           <Badge variant="secondary" className="text-xs">
                             {session.messageCount} messages
                           </Badge>
-                        </div>
-
-                        {/* Tool name display */}
-                        <div className="flex items-center gap-1">
-                          <div className={`w-2 h-2 rounded-full ${getToolColor(session.toolId)}`} />
-                          <span className="text-xs text-muted-foreground">{getToolName(session.toolId)}</span>
                         </div>
                       </div>
 
@@ -275,7 +249,7 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0"
+                            className="opacity-0 group-hover:opacity-100 h-8 w-8 p-0"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <MoreHorizontal className="h-4 w-4" />

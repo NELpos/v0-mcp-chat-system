@@ -9,24 +9,32 @@ interface ToolToken {
   github?: string
 }
 
+interface ToolActivation {
+  [toolId: string]: boolean
+}
+
 interface SettingsContextType {
   toolTokens: ToolToken
   updateToken: (tool: keyof ToolToken, token: string) => void
   hasRequiredTokens: (toolId: string) => boolean
   isLoaded: boolean
+  toolActivation: ToolActivation
+  updateToolActivation: (toolId: string, isActive: boolean) => void
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined)
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [toolTokens, setToolTokens] = useState<ToolToken>({})
+  const [toolActivation, setToolActivation] = useState<ToolActivation>({})
   const [isLoaded, setIsLoaded] = useState(false)
 
-  // Load tokens from localStorage on mount
+  // Load tokens and activation states from localStorage on mount
   useEffect(() => {
-    const loadTokensFromStorage = () => {
+    const loadFromStorage = () => {
       try {
         if (typeof window !== "undefined") {
+          // Load tokens
           const savedTokens = localStorage.getItem("mcp-tool-tokens")
           if (savedTokens) {
             const parsed = JSON.parse(savedTokens)
@@ -37,20 +45,44 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           } else {
             console.log("No saved tokens found in localStorage")
           }
+
+          // Load tool activation states
+          const savedActivation = localStorage.getItem("mcp-tool-activation")
+          if (savedActivation) {
+            const parsed = JSON.parse(savedActivation)
+            if (parsed && typeof parsed === "object") {
+              console.log("Loading saved tool activation from localStorage:", Object.keys(parsed))
+              setToolActivation(parsed)
+            }
+          } else {
+            // Default: all tools are active
+            const defaultActivation = {
+              jira: true,
+              atlassian: true,
+              slack: true,
+              github: true,
+              "web-search": true,
+              "code-interpreter": true,
+            }
+            setToolActivation(defaultActivation)
+            localStorage.setItem("mcp-tool-activation", JSON.stringify(defaultActivation))
+          }
         }
       } catch (error) {
-        console.error("Failed to parse saved tokens:", error)
+        console.error("Failed to parse saved data:", error)
         // Clear corrupted data
         if (typeof window !== "undefined") {
           localStorage.removeItem("mcp-tool-tokens")
+          localStorage.removeItem("mcp-tool-activation")
         }
         setToolTokens({})
+        setToolActivation({})
       } finally {
         setIsLoaded(true)
       }
     }
 
-    loadTokensFromStorage()
+    loadFromStorage()
   }, [])
 
   const updateToken = (tool: keyof ToolToken, token: string) => {
@@ -74,6 +106,27 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  const updateToolActivation = (toolId: string, isActive: boolean) => {
+    setToolActivation((prev) => {
+      const newActivation = {
+        ...prev,
+        [toolId]: isActive,
+      }
+
+      // Immediately save to localStorage
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("mcp-tool-activation", JSON.stringify(newActivation))
+          console.log("Tool activation updated and saved to localStorage:", { toolId, isActive })
+        }
+      } catch (error) {
+        console.error("Failed to save tool activation to localStorage:", error)
+      }
+
+      return newActivation
+    })
+  }
+
   const hasRequiredTokens = (toolId: string) => {
     if (!toolId) return false
 
@@ -92,7 +145,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <SettingsContext.Provider value={{ toolTokens, updateToken, hasRequiredTokens, isLoaded }}>
+    <SettingsContext.Provider
+      value={{
+        toolTokens,
+        updateToken,
+        hasRequiredTokens,
+        isLoaded,
+        toolActivation,
+        updateToolActivation,
+      }}
+    >
       {children}
     </SettingsContext.Provider>
   )

@@ -1,10 +1,15 @@
-import type { MCPTool } from "@/lib/mcp-tools"
+export interface SelectedTool {
+  serverId: string
+  toolId: string
+  serverName: string
+  toolName: string
+}
 
 export interface ToolGroup {
   id: string
   name: string
   description: string
-  tools: MCPTool[]
+  selectedTools: SelectedTool[]
   createdAt: Date
   updatedAt: Date
   isActive: boolean

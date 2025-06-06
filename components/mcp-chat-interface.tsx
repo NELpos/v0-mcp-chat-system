@@ -5,14 +5,13 @@ import type React from "react"
 import { useChat as useAIChat } from "ai/react"
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import MessageList from "@/components/message-list"
 import ChatInput from "@/components/chat-input"
 import { mcpTools } from "@/lib/mcp-tools"
-import { SettingsDialog } from "@/components/settings-dialog"
+import { ToolSettingsDialog } from "@/components/tool-settings-dialog"
 import { useSettings } from "@/contexts/settings-context"
 import { useChat } from "@/contexts/chat-context"
-import { AlertCircle, Info, Plus } from "lucide-react"
+import { AlertCircle, Info } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import type { ChatMessage } from "@/types/chat"
 
@@ -32,7 +31,7 @@ export function MCPChatInterface() {
         ]
 
   const [activeTool, setActiveTool] = useState(safeMcpTools[0])
-  const { hasRequiredTokens, toolTokens } = useSettings()
+  const { hasRequiredTokens, toolTokens, toolActivation } = useSettings()
   const { currentSession, createNewSession, addMessageToSession } = useChat()
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false)
 
@@ -43,6 +42,9 @@ export function MCPChatInterface() {
       setIsSettingsLoaded(true)
     }
   }, [toolTokens])
+
+  // Filter tools based on activation status
+  const activeTools = safeMcpTools.filter((tool) => toolActivation[tool.id] !== false)
 
   const {
     messages = [],
@@ -56,6 +58,7 @@ export function MCPChatInterface() {
     api: "/api/chat",
     body: {
       activeTool: activeTool?.id || "default",
+      activeTools: activeTools.map((tool) => tool.id),
     },
     onFinish: (message) => {
       // Add message to current session
@@ -83,14 +86,17 @@ export function MCPChatInterface() {
       setMessages(aiMessages)
 
       // Update active tool based on session
-      const sessionTool = safeMcpTools.find((t) => t.id === currentSession.toolId)
+      const sessionTool = activeTools.find((t) => t.id === currentSession.toolId)
       if (sessionTool) {
         setActiveTool(sessionTool)
+      } else if (activeTools.length > 0) {
+        // If session tool is not active, switch to first active tool
+        setActiveTool(activeTools[0])
       }
     } else {
       setMessages([])
     }
-  }, [currentSession, setMessages, safeMcpTools])
+  }, [currentSession, setMessages, activeTools])
 
   // Show loading state while settings are loading
   if (!isSettingsLoaded) {
@@ -107,23 +113,22 @@ export function MCPChatInterface() {
   }
 
   const handleToolChange = (toolId: string) => {
-    const tool = safeMcpTools.find((t) => t.id === toolId) || safeMcpTools[0]
-    setActiveTool(tool)
+    const tool = activeTools.find((t) => t.id === toolId) || activeTools[0]
+    if (tool) {
+      setActiveTool(tool)
 
-    // Create new session when tool changes
-    if (!currentSession || currentSession.toolId !== toolId) {
-      createNewSession(toolId)
+      // Create new session when tool changes
+      if (!currentSession || currentSession.toolId !== toolId) {
+        createNewSession(toolId)
+      }
     }
-  }
-
-  const handleNewChat = () => {
-    createNewSession(activeTool?.id || safeMcpTools[0].id)
   }
 
   const handleChatSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     // Create new session if none exists
     if (!currentSession) {
-      const newSession = createNewSession(activeTool?.id || safeMcpTools[0].id)
+      const toolId = activeTool?.id || (activeTools.length > 0 ? activeTools[0].id : safeMcpTools[0].id)
+      const newSession = createNewSession(toolId)
 
       // Add user message to session
       const userMessage: ChatMessage = {
@@ -161,19 +166,20 @@ export function MCPChatInterface() {
     <Card className="w-full h-[calc(100vh-10rem)] flex flex-col">
       <CardContent className="flex flex-col h-full p-4 pt-6">
         <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-medium">
-              {currentSession ? currentSession.title : `Chat with ${activeTool?.name || "AI"}`}
-            </h2>
-            {!currentSession && (
-              <Button variant="outline" size="sm" onClick={handleNewChat}>
-                <Plus className="h-4 w-4 mr-2" />
-                New Chat
-              </Button>
-            )}
-          </div>
-          <SettingsDialog />
+          <h2 className="text-lg font-medium">
+            {currentSession ? currentSession.title : `Chat with ${activeTool?.name || "AI"}`}
+          </h2>
+          <ToolSettingsDialog />
         </div>
+
+        {activeTools.length === 0 && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              No tools are currently active. Please enable at least one tool in Tool Settings.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {needsToken && (
           <Alert variant="destructive" className="mb-4">
@@ -184,12 +190,13 @@ export function MCPChatInterface() {
           </Alert>
         )}
 
-        {(!messages || messages.length === 0) && !currentSession && (
+        {(!messages || messages.length === 0) && !currentSession && activeTools.length > 0 && (
           <Alert className="mb-4">
             <Info className="h-4 w-4" />
             <AlertTitle>Welcome to MCP Chat</AlertTitle>
             <AlertDescription>
-              Start a conversation by typing a message below. You can select different MCP tools from the dropdown.
+              Start a conversation by typing a message below. You have {activeTools.length} active tool
+              {activeTools.length !== 1 ? "s" : ""} available.
             </AlertDescription>
           </Alert>
         )}
@@ -204,9 +211,9 @@ export function MCPChatInterface() {
           handleSubmit={handleChatSubmit}
           isLoading={isLoading}
           activeTool={activeTool}
-          tools={safeMcpTools}
+          tools={activeTools}
           onToolChange={handleToolChange}
-          disabled={needsToken}
+          disabled={needsToken || activeTools.length === 0}
           onStop={handleStop}
         />
       </CardContent>
