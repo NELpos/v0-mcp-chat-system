@@ -1,17 +1,12 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,18 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import {
-  Plus,
-  Search,
-  MoreHorizontal,
-  MessageSquare,
-  Clock,
-  Trash2,
-  Edit,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-} from "lucide-react"
+import { Plus, Search, MessageSquare, Clock, Trash2, Edit, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { useChat } from "@/contexts/chat-context"
 import type { ChatSession } from "@/types/chat"
 import { toast } from "@/components/ui/use-toast"
@@ -99,7 +83,8 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
     }, 300)
   }, [isLoading, hasMore, allFilteredSessions.length])
 
-  const handleEditTitle = (session: ChatSession) => {
+  const handleEditTitle = (session: ChatSession, e: React.MouseEvent) => {
+    e.stopPropagation()
     setEditingSessionId(session.id)
     setEditTitle(session.title)
   }
@@ -114,6 +99,11 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
         description: "The chat session has been renamed successfully.",
       })
     }
+  }
+
+  const handleDeleteClick = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDeleteSessionId(sessionId)
   }
 
   const handleDeleteSession = (sessionId: string) => {
@@ -155,7 +145,7 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
   }
 
   return (
-    <div className="w-96 h-full border-r bg-background flex flex-col">
+    <div className="w-80 max-w-96 h-full border-r bg-background flex flex-col">
       {/* Header */}
       <div className="border-b bg-background p-4">
         <div className="flex items-center justify-between mb-3">
@@ -211,7 +201,7 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
                     onClick={() => loadSession(session.id)}
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0 pr-3">
+                      <div className="flex-1 min-w-0 pr-12">
                         <div className="mb-3">
                           {editingSessionId === session.id ? (
                             <Input
@@ -244,32 +234,27 @@ export function ChatHistorySidebar({ isCollapsed, onToggleCollapse, onNewChat }:
                         </div>
                       </div>
 
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="opacity-0 group-hover:opacity-100 h-8 w-8 p-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditTitle(session)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Rename
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setDeleteSessionId(session.id)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {/* Action Buttons */}
+                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-muted"
+                          onClick={(e) => handleEditTitle(session, e)}
+                          title="Rename chat"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={(e) => handleDeleteClick(session.id, e)}
+                          title="Delete chat"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}

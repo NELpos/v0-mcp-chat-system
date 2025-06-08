@@ -16,7 +16,7 @@ import { MCPChatInterface } from "@/components/mcp-chat-interface"
 import { ChatProvider } from "@/contexts/chat-context"
 
 export default function MCPPage() {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isChatSidebarCollapsed, setIsChatSidebarCollapsed] = useState(false)
 
   const handleNewChat = () => {
     // This will be handled by the MCPChatInterface component
@@ -43,12 +43,12 @@ export default function MCPPage() {
 
         <div className="flex flex-1">
           <ChatHistorySidebar
-            isCollapsed={isSidebarCollapsed}
-            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            isCollapsed={isChatSidebarCollapsed}
+            onToggleCollapse={() => setIsChatSidebarCollapsed(!isChatSidebarCollapsed)}
             onNewChat={handleNewChat}
           />
 
-          <main className="flex-1 container max-w-6xl mx-auto p-4">
+          <main className="flex-1 container max-w-none mx-auto p-4">
             <div className="mb-6">
               <h1 className="text-3xl font-bold mb-2">MCP Chat</h1>
               <p className="text-muted-foreground">

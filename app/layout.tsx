@@ -4,7 +4,9 @@ import "./globals.css"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { SettingsProvider } from "@/contexts/settings-context"
+import { ThemeProvider } from "@/contexts/theme-context"
 import { Toaster } from "@/components/toaster"
+import { UserMenu } from "@/components/user-menu"
 
 export const metadata: Metadata = {
   title: "AI Chat System",
@@ -18,15 +20,22 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <SettingsProvider>
-          <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>{children}</SidebarInset>
-            <Toaster />
-          </SidebarProvider>
-        </SettingsProvider>
+        <ThemeProvider>
+          <SettingsProvider>
+            <SidebarProvider>
+              <AppSidebar />
+              <SidebarInset>
+                <div className="absolute top-0 right-0 p-4 z-10">
+                  <UserMenu />
+                </div>
+                {children}
+              </SidebarInset>
+              <Toaster />
+            </SidebarProvider>
+          </SettingsProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

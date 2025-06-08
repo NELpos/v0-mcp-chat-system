@@ -18,393 +18,233 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined)
 
-// Extended mock data for demonstration (20 sessions)
+// Mock data for demonstration (5 sessions with 3 messages each)
 const mockSessions: ChatSession[] = [
   {
     id: "session-1",
-    title: "Jira Issue Management",
-    description: "Discussion about creating and managing Jira issues",
+    title: "Jira Bug Report",
+    description: "Creating a bug report for login issues",
     createdAt: new Date("2024-01-20T10:00:00Z"),
-    updatedAt: new Date("2024-01-20T10:30:00Z"),
+    updatedAt: new Date("2024-01-20T10:15:00Z"),
     toolId: "jira",
     isActive: false,
-    messageCount: 8,
+    messageCount: 3,
     messages: [
       {
         id: "msg-1",
         role: "user",
-        content: "Can you help me create a new Jira issue for the login bug?",
+        content: "I need to create a bug report for users unable to login after the latest update.",
         timestamp: new Date("2024-01-20T10:00:00Z"),
         toolUsed: "jira",
       },
       {
         id: "msg-2",
         role: "assistant",
-        content:
-          "I'll help you create a Jira issue for the login bug. Let me gather the necessary information first. What project should this issue be created in?",
+        content: `I'll help you create a bug report in Jira. Here's what I've created:
+
+## Bug Report Created: PROJ-123
+
+**Title:** Login failure after latest update  
+**Priority:** High  
+**Status:** Open  
+**Assignee:** Development Team
+
+### Issue Description
+Users are experiencing login failures following the latest system update. The authentication service appears to be affected.
+
+### Steps to Reproduce
+1. Navigate to login page
+2. Enter valid credentials
+3. Click "Sign In" button
+4. Observe error message
+
+### Expected Result
+User should be successfully logged in and redirected to dashboard.
+
+### Actual Result
+Login fails with "Authentication Error" message.
+
+The development team has been automatically notified and will investigate the authentication service immediately.`,
         timestamp: new Date("2024-01-20T10:01:00Z"),
+        toolUsed: "jira",
+      },
+      {
+        id: "msg-3",
+        role: "user",
+        content: "Can you also add the affected user count to the issue description?",
+        timestamp: new Date("2024-01-20T10:02:00Z"),
         toolUsed: "jira",
       },
     ],
   },
   {
     id: "session-2",
-    title: "Slack Team Communication",
-    description: "Setting up team notifications and channels",
+    title: "GitHub Code Review",
+    description: "Reviewing pull request for new feature",
     createdAt: new Date("2024-01-19T14:00:00Z"),
-    updatedAt: new Date("2024-01-19T14:45:00Z"),
-    toolId: "slack",
-    isActive: false,
-    messageCount: 12,
-    messages: [
-      {
-        id: "msg-5",
-        role: "user",
-        content: "I need to send a message to the #development channel about the new release.",
-        timestamp: new Date("2024-01-19T14:00:00Z"),
-        toolUsed: "slack",
-      },
-    ],
-  },
-  {
-    id: "session-3",
-    title: "GitHub Repository Analysis",
-    description: "Analyzing code quality and pull requests",
-    createdAt: new Date("2024-01-18T09:00:00Z"),
-    updatedAt: new Date("2024-01-18T09:30:00Z"),
+    updatedAt: new Date("2024-01-19T14:15:00Z"),
     toolId: "github",
     isActive: false,
-    messageCount: 6,
+    messageCount: 3,
     messages: [
       {
-        id: "msg-7",
+        id: "msg-4",
         role: "user",
-        content: "Can you review the latest pull request in our main repository?",
-        timestamp: new Date("2024-01-18T09:00:00Z"),
+        content: "Please review the pull request #456 for the new user dashboard feature.",
+        timestamp: new Date("2024-01-19T14:00:00Z"),
+        toolUsed: "github",
+      },
+      {
+        id: "msg-5",
+        role: "assistant",
+        content: `I've completed the review for pull request #456. Here's my assessment:
+
+## Code Review Summary
+
+### ✅ Strengths
+- **Clean Architecture**: Well-structured component hierarchy
+- **Error Handling**: Proper try-catch blocks implemented
+- **Performance**: Efficient state management with hooks
+
+### 🔍 Suggestions for Improvement
+
+#### 1. PropTypes Validation
+\`\`\`javascript
+// Add PropTypes for better type checking
+import PropTypes from 'prop-types';
+
+UserDashboard.propTypes = {
+  userId: PropTypes.string.isRequired,
+  userData: PropTypes.object.isRequired
+};
+\`\`\`
+
+#### 2. API Call Optimization
+\`\`\`javascript
+// Use useCallback to prevent unnecessary re-renders
+const fetchUserData = useCallback(async () => {
+  // API call logic
+}, [userId]);
+\`\`\`
+
+#### 3. Test Coverage
+- Current coverage: 78%
+- Target coverage: 85%
+- Missing tests for error scenarios
+
+### Recommendation
+**Approve after addressing the 3 points above.** The core functionality is solid and ready for merge once these improvements are implemented.`,
+        timestamp: new Date("2024-01-19T14:01:00Z"),
+        toolUsed: "github",
+      },
+      {
+        id: "msg-6",
+        role: "user",
+        content: "Should we also check the performance impact of the new dashboard?",
+        timestamp: new Date("2024-01-19T14:02:00Z"),
         toolUsed: "github",
       },
     ],
   },
   {
+    id: "session-3",
+    title: "Slack Team Update",
+    description: "Sending project status update to team",
+    createdAt: new Date("2024-01-18T09:00:00Z"),
+    updatedAt: new Date("2024-01-18T09:15:00Z"),
+    toolId: "slack",
+    isActive: false,
+    messageCount: 3,
+    messages: [
+      {
+        id: "msg-7",
+        role: "user",
+        content: "Send a project status update to the development team channel about our sprint progress.",
+        timestamp: new Date("2024-01-18T09:00:00Z"),
+        toolUsed: "slack",
+      },
+      {
+        id: "msg-8",
+        role: "assistant",
+        content:
+          "I've sent the sprint progress update to the #development channel. The message includes our current completion rate of 85%, highlights of the 12 completed tasks, and mentions the 3 remaining items for this sprint. The team has been notified about the upcoming code freeze on Friday and the demo scheduled for next Monday.",
+        timestamp: new Date("2024-01-18T09:01:00Z"),
+        toolUsed: "slack",
+      },
+      {
+        id: "msg-9",
+        role: "user",
+        content: "Can you also mention the new testing procedures in the update?",
+        timestamp: new Date("2024-01-18T09:02:00Z"),
+        toolUsed: "slack",
+      },
+    ],
+  },
+  {
     id: "session-4",
-    title: "Web Search for Documentation",
-    description: "Searching for API documentation and tutorials",
+    title: "Web Search Research",
+    description: "Researching React best practices",
     createdAt: new Date("2024-01-17T16:20:00Z"),
-    updatedAt: new Date("2024-01-17T16:45:00Z"),
+    updatedAt: new Date("2024-01-17T16:35:00Z"),
     toolId: "web-search",
     isActive: false,
-    messageCount: 15,
+    messageCount: 3,
     messages: [
       {
         id: "msg-10",
         role: "user",
-        content: "Find the latest React documentation for hooks",
+        content: "Find the latest best practices for React performance optimization in 2024.",
         timestamp: new Date("2024-01-17T16:20:00Z"),
+        toolUsed: "web-search",
+      },
+      {
+        id: "msg-11",
+        role: "assistant",
+        content:
+          "I found the latest React performance optimization best practices for 2024. Key recommendations include using React 18's concurrent features like Suspense and startTransition, implementing proper memoization with useMemo and useCallback, code splitting with lazy loading, optimizing bundle size with tree shaking, and using the new React DevTools Profiler for performance monitoring. Virtual scrolling for large lists and image optimization techniques are also highly recommended.",
+        timestamp: new Date("2024-01-17T16:21:00Z"),
+        toolUsed: "web-search",
+      },
+      {
+        id: "msg-12",
+        role: "user",
+        content: "What about server-side rendering improvements in React 18?",
+        timestamp: new Date("2024-01-17T16:22:00Z"),
         toolUsed: "web-search",
       },
     ],
   },
   {
     id: "session-5",
-    title: "Code Interpreter Session",
-    description: "Python data analysis and visualization",
+    title: "Data Analysis",
+    description: "Analyzing sales performance data",
     createdAt: new Date("2024-01-16T11:30:00Z"),
-    updatedAt: new Date("2024-01-16T12:15:00Z"),
+    updatedAt: new Date("2024-01-16T11:45:00Z"),
     toolId: "code-interpreter",
     isActive: false,
-    messageCount: 22,
+    messageCount: 3,
     messages: [
       {
-        id: "msg-12",
+        id: "msg-13",
         role: "user",
-        content: "Analyze this CSV data and create a visualization",
+        content: "Analyze our Q4 sales data and provide insights on performance trends.",
         timestamp: new Date("2024-01-16T11:30:00Z"),
         toolUsed: "code-interpreter",
       },
-    ],
-  },
-  {
-    id: "session-6",
-    title: "Atlassian Confluence Setup",
-    description: "Setting up team documentation space",
-    createdAt: new Date("2024-01-15T13:45:00Z"),
-    updatedAt: new Date("2024-01-15T14:20:00Z"),
-    toolId: "atlassian",
-    isActive: false,
-    messageCount: 9,
-    messages: [
+      {
+        id: "msg-14",
+        role: "assistant",
+        content:
+          "I've analyzed your Q4 sales data and found several key insights. Total revenue reached $2.4M with a 15% growth compared to Q3. The top performing product category was Enterprise Software with 40% of total sales. Regional analysis shows North America leading with 55% of sales, followed by Europe at 30%. Customer acquisition cost decreased by 8% while average order value increased by 12%. The data suggests strong momentum heading into Q1 2024.",
+        timestamp: new Date("2024-01-16T11:31:00Z"),
+        toolUsed: "code-interpreter",
+      },
       {
         id: "msg-15",
         role: "user",
-        content: "Help me create a new Confluence space for our project",
-        timestamp: new Date("2024-01-15T13:45:00Z"),
-        toolUsed: "atlassian",
-      },
-    ],
-  },
-  {
-    id: "session-7",
-    title: "Bug Tracking Workflow",
-    description: "Optimizing bug reporting process in Jira",
-    createdAt: new Date("2024-01-14T08:15:00Z"),
-    updatedAt: new Date("2024-01-14T09:00:00Z"),
-    toolId: "jira",
-    isActive: false,
-    messageCount: 18,
-    messages: [
-      {
-        id: "msg-18",
-        role: "user",
-        content: "How can we improve our bug tracking workflow?",
-        timestamp: new Date("2024-01-14T08:15:00Z"),
-        toolUsed: "jira",
-      },
-    ],
-  },
-  {
-    id: "session-8",
-    title: "Daily Standup Automation",
-    description: "Automating daily standup reminders in Slack",
-    createdAt: new Date("2024-01-13T10:30:00Z"),
-    updatedAt: new Date("2024-01-13T11:15:00Z"),
-    toolId: "slack",
-    isActive: false,
-    messageCount: 14,
-    messages: [
-      {
-        id: "msg-20",
-        role: "user",
-        content: "Set up automated daily standup reminders",
-        timestamp: new Date("2024-01-13T10:30:00Z"),
-        toolUsed: "slack",
-      },
-    ],
-  },
-  {
-    id: "session-9",
-    title: "Code Review Guidelines",
-    description: "Establishing code review best practices",
-    createdAt: new Date("2024-01-12T15:20:00Z"),
-    updatedAt: new Date("2024-01-12T16:10:00Z"),
-    toolId: "github",
-    isActive: false,
-    messageCount: 25,
-    messages: [
-      {
-        id: "msg-22",
-        role: "user",
-        content: "Create guidelines for effective code reviews",
-        timestamp: new Date("2024-01-12T15:20:00Z"),
-        toolUsed: "github",
-      },
-    ],
-  },
-  {
-    id: "session-10",
-    title: "Market Research Analysis",
-    description: "Researching competitor analysis and trends",
-    createdAt: new Date("2024-01-11T09:45:00Z"),
-    updatedAt: new Date("2024-01-11T10:30:00Z"),
-    toolId: "web-search",
-    isActive: false,
-    messageCount: 11,
-    messages: [
-      {
-        id: "msg-25",
-        role: "user",
-        content: "Research current trends in AI development tools",
-        timestamp: new Date("2024-01-11T09:45:00Z"),
-        toolUsed: "web-search",
-      },
-    ],
-  },
-  {
-    id: "session-11",
-    title: "Data Pipeline Optimization",
-    description: "Optimizing ETL processes with Python",
-    createdAt: new Date("2024-01-10T14:00:00Z"),
-    updatedAt: new Date("2024-01-10T15:30:00Z"),
-    toolId: "code-interpreter",
-    isActive: false,
-    messageCount: 31,
-    messages: [
-      {
-        id: "msg-28",
-        role: "user",
-        content: "Optimize our data processing pipeline",
-        timestamp: new Date("2024-01-10T14:00:00Z"),
+        content: "Can you create a forecast for Q1 2025 based on this trend?",
+        timestamp: new Date("2024-01-16T11:32:00Z"),
         toolUsed: "code-interpreter",
-      },
-    ],
-  },
-  {
-    id: "session-12",
-    title: "Team Knowledge Base",
-    description: "Creating comprehensive team documentation",
-    createdAt: new Date("2024-01-09T11:20:00Z"),
-    updatedAt: new Date("2024-01-09T12:45:00Z"),
-    toolId: "atlassian",
-    isActive: false,
-    messageCount: 16,
-    messages: [
-      {
-        id: "msg-30",
-        role: "user",
-        content: "Structure our team knowledge base in Confluence",
-        timestamp: new Date("2024-01-09T11:20:00Z"),
-        toolUsed: "atlassian",
-      },
-    ],
-  },
-  {
-    id: "session-13",
-    title: "Sprint Planning Session",
-    description: "Planning next sprint tasks and assignments",
-    createdAt: new Date("2024-01-08T13:30:00Z"),
-    updatedAt: new Date("2024-01-08T14:15:00Z"),
-    toolId: "jira",
-    isActive: false,
-    messageCount: 20,
-    messages: [
-      {
-        id: "msg-32",
-        role: "user",
-        content: "Help plan our next 2-week sprint",
-        timestamp: new Date("2024-01-08T13:30:00Z"),
-        toolUsed: "jira",
-      },
-    ],
-  },
-  {
-    id: "session-14",
-    title: "Release Announcement",
-    description: "Coordinating product release communications",
-    createdAt: new Date("2024-01-07T16:45:00Z"),
-    updatedAt: new Date("2024-01-07T17:20:00Z"),
-    toolId: "slack",
-    isActive: false,
-    messageCount: 8,
-    messages: [
-      {
-        id: "msg-35",
-        role: "user",
-        content: "Draft release announcement for v2.0",
-        timestamp: new Date("2024-01-07T16:45:00Z"),
-        toolUsed: "slack",
-      },
-    ],
-  },
-  {
-    id: "session-15",
-    title: "CI/CD Pipeline Setup",
-    description: "Configuring automated deployment workflows",
-    createdAt: new Date("2024-01-06T10:15:00Z"),
-    updatedAt: new Date("2024-01-06T11:45:00Z"),
-    toolId: "github",
-    isActive: false,
-    messageCount: 27,
-    messages: [
-      {
-        id: "msg-38",
-        role: "user",
-        content: "Set up GitHub Actions for automated testing",
-        timestamp: new Date("2024-01-06T10:15:00Z"),
-        toolUsed: "github",
-      },
-    ],
-  },
-  {
-    id: "session-16",
-    title: "Technical Documentation Search",
-    description: "Finding specific API endpoints and examples",
-    createdAt: new Date("2024-01-05T12:30:00Z"),
-    updatedAt: new Date("2024-01-05T13:00:00Z"),
-    toolId: "web-search",
-    isActive: false,
-    messageCount: 7,
-    messages: [
-      {
-        id: "msg-40",
-        role: "user",
-        content: "Find examples of REST API authentication methods",
-        timestamp: new Date("2024-01-05T12:30:00Z"),
-        toolUsed: "web-search",
-      },
-    ],
-  },
-  {
-    id: "session-17",
-    title: "Machine Learning Model Training",
-    description: "Training and evaluating ML models",
-    createdAt: new Date("2024-01-04T09:20:00Z"),
-    updatedAt: new Date("2024-01-04T11:30:00Z"),
-    toolId: "code-interpreter",
-    isActive: false,
-    messageCount: 35,
-    messages: [
-      {
-        id: "msg-42",
-        role: "user",
-        content: "Train a classification model on this dataset",
-        timestamp: new Date("2024-01-04T09:20:00Z"),
-        toolUsed: "code-interpreter",
-      },
-    ],
-  },
-  {
-    id: "session-18",
-    title: "Project Requirements Documentation",
-    description: "Documenting functional and technical requirements",
-    createdAt: new Date("2024-01-03T14:45:00Z"),
-    updatedAt: new Date("2024-01-03T16:00:00Z"),
-    toolId: "atlassian",
-    isActive: false,
-    messageCount: 19,
-    messages: [
-      {
-        id: "msg-45",
-        role: "user",
-        content: "Document requirements for the new feature",
-        timestamp: new Date("2024-01-03T14:45:00Z"),
-        toolUsed: "atlassian",
-      },
-    ],
-  },
-  {
-    id: "session-19",
-    title: "Performance Issue Investigation",
-    description: "Investigating and resolving performance bottlenecks",
-    createdAt: new Date("2024-01-02T11:10:00Z"),
-    updatedAt: new Date("2024-01-02T12:30:00Z"),
-    toolId: "jira",
-    isActive: false,
-    messageCount: 13,
-    messages: [
-      {
-        id: "msg-48",
-        role: "user",
-        content: "Investigate slow API response times",
-        timestamp: new Date("2024-01-02T11:10:00Z"),
-        toolUsed: "jira",
-      },
-    ],
-  },
-  {
-    id: "session-20",
-    title: "Team Onboarding Process",
-    description: "Streamlining new team member onboarding",
-    createdAt: new Date("2024-01-01T15:30:00Z"),
-    updatedAt: new Date("2024-01-01T16:45:00Z"),
-    toolId: "slack",
-    isActive: false,
-    messageCount: 24,
-    messages: [
-      {
-        id: "msg-50",
-        role: "user",
-        content: "Create onboarding checklist for new developers",
-        timestamp: new Date("2024-01-01T15:30:00Z"),
-        toolUsed: "slack",
       },
     ],
   },

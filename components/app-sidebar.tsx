@@ -20,6 +20,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { Bot, Database, Settings, FileText, Shield, Key, Users, Boxes } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 // Navigation items
 const navItems = [
@@ -41,11 +42,21 @@ const navItems = [
     icon: FileText,
     description: "Manage and version your AI prompts",
   },
+]
+
+// Settings navigation items
+const settingsItems = [
   {
-    title: "Settings",
+    title: "MCP Settings",
     url: "/settings",
     icon: Settings,
-    description: "Configure API tokens and preferences",
+    description: "Configure MCP tokens and preferences",
+  },
+  {
+    title: "API Key",
+    url: "/user/api-key",
+    icon: Key,
+    description: "Manage your personal API key",
   },
 ]
 
@@ -70,6 +81,14 @@ const adminItems = [
     description: "Manage user permissions for tool groups",
   },
 ]
+
+// Mock user data
+const mockUser = {
+  name: "John Doe",
+  email: "john.doe@example.com",
+  avatarUrl: "",
+  role: "Administrator",
+}
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
@@ -113,6 +132,31 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
 
         <SidebarGroup>
+          <SidebarGroupLabel>Settings</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === "/settings" || pathname === "/user/api-key"}>
+                  <Link href="/settings">
+                    <Settings />
+                    <span>Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+                <SidebarMenuSub>
+                  {settingsItems.map((item) => (
+                    <SidebarMenuSubItem key={item.title}>
+                      <SidebarMenuSubButton asChild isActive={pathname === item.url}>
+                        <Link href={item.url}>{item.title}</Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
           <SidebarGroupLabel>Administration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -140,9 +184,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex items-center justify-center w-full px-2">
-              <span className="text-sm text-muted-foreground">AI Chat System v1.0</span>
-            </div>
+            <Link href="/user/api-key" className="flex items-center gap-3 px-3 py-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={mockUser.avatarUrl || "/placeholder.svg"} alt={mockUser.name} />
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  {mockUser.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">{mockUser.name}</span>
+                <span className="text-xs text-muted-foreground">{mockUser.role}</span>
+              </div>
+            </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
