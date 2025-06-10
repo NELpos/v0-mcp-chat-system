@@ -46,8 +46,19 @@ export function ToolSettingsDialog() {
   }
 
   const getActiveServersCount = () => {
-    if (!isLoaded) return 0
+    if (!isLoaded || !mcpServers) return 0
     return Object.values(toolActivation).filter(Boolean).length
+  }
+
+  // Safety check to prevent the error
+  if (!mcpServers || !Array.isArray(mcpServers)) {
+    console.error("mcpServers is not properly defined:", mcpServers)
+    return (
+      <Button variant="outline" size="icon">
+        <Wrench className="h-5 w-5" />
+        <span className="sr-only">Tool Settings</span>
+      </Button>
+    )
   }
 
   return (
@@ -84,6 +95,9 @@ export function ToolSettingsDialog() {
               const hasTokens = hasRequiredTokens(server.id)
               const isExpanded = expandedServers.includes(server.id)
 
+              // Safety check for server.tools
+              const tools = server.tools || []
+
               return (
                 <div key={server.id} className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
@@ -114,13 +128,13 @@ export function ToolSettingsDialog() {
                   <Collapsible open={isExpanded} onOpenChange={() => toggleServerExpansion(server.id)}>
                     <CollapsibleTrigger asChild>
                       <Button variant="ghost" size="sm" className="w-full justify-between p-0 h-auto">
-                        <span className="text-sm font-medium">Available Tools ({server.tools.length})</span>
+                        <span className="text-sm font-medium">Available Tools ({tools.length})</span>
                         {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-3">
                       <div className="space-y-3">
-                        {server.tools.map((tool, index) => (
+                        {tools.map((tool, index) => (
                           <div key={tool.id}>
                             <div className="flex items-start gap-3">
                               <div className="flex-1">
@@ -142,7 +156,7 @@ export function ToolSettingsDialog() {
                                 )}
                               </div>
                             </div>
-                            {index < server.tools.length - 1 && <Separator className="mt-3" />}
+                            {index < tools.length - 1 && <Separator className="mt-3" />}
                           </div>
                         ))}
                       </div>

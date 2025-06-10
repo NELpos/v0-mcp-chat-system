@@ -22,13 +22,6 @@ export const mcpTools: MCPTool[] = [
     requiresAuth: true,
   },
   {
-    id: "slack",
-    name: "Slack",
-    description: "Send messages and access Slack channels",
-    type: "communication",
-    requiresAuth: true,
-  },
-  {
     id: "github",
     name: "GitHub",
     description: "Access repositories, issues, and pull requests",

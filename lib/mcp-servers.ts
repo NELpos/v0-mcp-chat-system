@@ -55,45 +55,6 @@ export const mcpServers: MCPServer[] = [
     ],
   },
   {
-    id: "slack",
-    name: "Slack",
-    description: "Team communication and collaboration",
-    type: "communication",
-    requiresAuth: true,
-    tools: [
-      {
-        id: "send-message",
-        name: "Send Message",
-        description: "Send a message to a channel or user",
-        parameters: ["channel", "text", "thread_ts"],
-      },
-      {
-        id: "create-channel",
-        name: "Create Channel",
-        description: "Create a new channel",
-        parameters: ["name", "is_private"],
-      },
-      {
-        id: "get-channels",
-        name: "Get Channels",
-        description: "List all channels",
-        parameters: ["types", "limit"],
-      },
-      {
-        id: "get-users",
-        name: "Get Users",
-        description: "List all users in workspace",
-        parameters: ["limit"],
-      },
-      {
-        id: "upload-file",
-        name: "Upload File",
-        description: "Upload a file to Slack",
-        parameters: ["channels", "file", "title"],
-      },
-    ],
-  },
-  {
     id: "github",
     name: "GitHub",
     description: "Code repository management and collaboration",

@@ -19,11 +19,17 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Bot, Database, Settings, FileText, Shield, Key, Users, Boxes } from "lucide-react"
+import { Bot, Database, Settings, FileText, Shield, Key, Users, Boxes, UserCheck } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 // Navigation items
 const navItems = [
+  {
+    title: "Onboarding",
+    url: "/onboarding",
+    icon: UserCheck,
+    description: "Get started with MCP Chat system setup",
+  },
   {
     title: "MCP Chat",
     url: "/mcp",

@@ -5,7 +5,6 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 interface ToolToken {
   jira?: string
   atlassian?: string
-  slack?: string
   github?: string
 }
 
@@ -59,7 +58,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             const defaultActivation = {
               jira: true,
               atlassian: true,
-              slack: true,
               github: true,
               "web-search": true,
               "code-interpreter": true,
@@ -135,8 +133,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         return !!toolTokens.jira
       case "atlassian":
         return !!toolTokens.atlassian
-      case "slack":
-        return !!toolTokens.slack
       case "github":
         return !!toolTokens.github
       default:
