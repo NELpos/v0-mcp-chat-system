@@ -16,7 +16,7 @@ import { MCPChatInterface } from "@/components/mcp-chat-interface"
 import { ChatProvider } from "@/contexts/chat-context"
 
 export default function MCPPage() {
-  const [isChatSidebarCollapsed, setIsChatSidebarCollapsed] = useState(false)
+  const [isChatSidebarCollapsed, setIsChatSidebarCollapsed] = useState(true)
 
   const handleNewChat = () => {
     // This will be handled by the MCPChatInterface component
