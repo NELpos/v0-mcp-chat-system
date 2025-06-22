@@ -1,411 +1,589 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { memo, useMemo, useState, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Copy, Check, Code, Braces } from "lucide-react"
+import { Copy, Check, Code2, Braces, ChevronDown, ChevronRight } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
+import rehypeKatex from "rehype-katex"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
-import { oneDark, oneLight } from "react-syntax-highlighter/dist/esm/styles/prism"
+import { vscDarkPlus, vs } from "react-syntax-highlighter/dist/esm/styles/prism"
 import { useTheme } from "@/contexts/theme-context"
+import { cn } from "@/lib/utils"
+import "katex/dist/katex.min.css"
 
 interface MessageContentProps {
   content: string
   messageId?: string
+  isStreaming?: boolean
 }
 
-interface CodeBlock {
-  language: string
-  code: string
+interface ContentBlock {
+  type: "text" | "code" | "json" | "math" | "table" | "list"
+  content: string
+  language?: string
+  metadata?: Record<string, any>
 }
 
-interface JsonData {
-  data: any
-  isValid: boolean
-}
-
-export function MessageContent({ content, messageId }: MessageContentProps) {
+// Memoized component for performance optimization
+const MessageContent = memo(({ content, messageId, isStreaming = false }: MessageContentProps) => {
   const { theme } = useTheme()
-  const [isDarkMode, setIsDarkMode] = useState(false)
-  const [copiedBlock, setCopiedBlock] = useState<string | null>(null)
-  const [contentType, setContentType] = useState<"text" | "markdown" | "json" | "mixed">("text")
-  const [parsedContent, setParsedContent] = useState<{
-    text?: string
-    codeBlocks?: CodeBlock[]
-    jsonData?: JsonData
-    markdownSections?: string[]
-  }>({})
+  const isDark = theme === "dark"
 
-  // 테마 변경 감지 및 초기화
-  useEffect(() => {
-    setIsDarkMode(theme === "dark")
-  }, [theme])
+  const [copiedItems, setCopiedItems] = useState<Set<string>>(new Set())
+  const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
-    analyzeContent(content)
+  // Parse content into structured blocks
+  const contentBlocks = useMemo(() => {
+    return parseContent(content)
   }, [content])
 
-  const analyzeContent = (text: string) => {
-    // Check if content is JSON
-    if (isJsonString(text)) {
-      try {
-        const parsed = JSON.parse(text)
-        setParsedContent({ jsonData: { data: parsed, isValid: true } })
-        setContentType("json")
-        return
-      } catch (e) {
-        // Not valid JSON
-      }
-    }
-
-    // Check for code blocks
-    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g
-    const codeBlocks: CodeBlock[] = []
-    let match
-    let hasCodeBlocks = false
-
-    while ((match = codeBlockRegex.exec(text)) !== null) {
-      hasCodeBlocks = true
-      codeBlocks.push({
-        language: match[1] || "text",
-        code: match[2].trim(),
-      })
-    }
-
-    // Check for markdown patterns (more comprehensive)
-    const markdownPatterns = [
-      /^#{1,6}\s+.+$/m, // Headers
-      /\*\*.*?\*\*/g, // Bold
-      /\*.*?\*/g, // Italic
-      /\[.*?\]$$.*?$$/g, // Links
-      /^[-*+]\s+.+$/m, // Lists
-      /^\d+\.\s+.+$/m, // Numbered lists
-      /^>\s+.+$/m, // Blockquotes
-      /`[^`]+`/g, // Inline code
-      /^\|.*\|$/m, // Tables
-      /^- \[[ x]\]/m, // Checkboxes
-    ]
-
-    const hasMarkdown = markdownPatterns.some((pattern) => pattern.test(text))
-
-    if (hasCodeBlocks || hasMarkdown) {
-      setParsedContent({
-        text,
-        codeBlocks: hasCodeBlocks ? codeBlocks : undefined,
-        markdownSections: hasMarkdown ? [text] : undefined,
-      })
-      setContentType(hasCodeBlocks && hasMarkdown ? "mixed" : hasCodeBlocks ? "markdown" : "markdown")
-    } else {
-      setParsedContent({ text })
-      setContentType("text")
-    }
-  }
-
-  const isJsonString = (str: string): boolean => {
-    try {
-      const trimmed = str.trim()
-      return (trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))
-    } catch {
-      return false
-    }
-  }
-
-  const copyToClipboard = async (text: string, blockId: string) => {
+  // Copy to clipboard handler
+  const handleCopy = useCallback(async (text: string, id: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      setCopiedBlock(blockId)
-      setTimeout(() => setCopiedBlock(null), 2000)
-    } catch (err) {
-      console.error("Failed to copy text: ", err)
+      setCopiedItems((prev) => new Set(prev).add(id))
+      setTimeout(() => {
+        setCopiedItems((prev) => {
+          const newSet = new Set(prev)
+          newSet.delete(id)
+          return newSet
+        })
+      }, 2000)
+    } catch (error) {
+      console.error("Failed to copy:", error)
     }
-  }
+  }, [])
 
-  const renderJson = (data: any, depth = 0) => {
-    if (typeof data === "object" && data !== null) {
-      if (Array.isArray(data)) {
-        return (
-          <div>
-            <span className="text-muted-foreground">[</span>
-            {data.map((item, index) => (
-              <div key={index} className="ml-4">
-                {renderJson(item, depth + 1)}
-                {index < data.length - 1 && <span className="text-muted-foreground">,</span>}
-              </div>
-            ))}
-            <span className="text-muted-foreground">]</span>
-          </div>
-        )
+  // Toggle block collapse
+  const toggleCollapse = useCallback((blockId: string) => {
+    setCollapsedBlocks((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(blockId)) {
+        newSet.delete(blockId)
       } else {
-        return (
-          <div>
-            <span className="text-muted-foreground">{"{"}</span>
-            {Object.entries(data).map(([key, value], index, arr) => (
-              <div key={key} className="ml-4">
-                <span className="text-blue-600">"{key}"</span>
-                <span className="text-muted-foreground">: </span>
-                {renderJson(value, depth + 1)}
-                {index < arr.length - 1 && <span className="text-muted-foreground">,</span>}
-              </div>
-            ))}
-            <span className="text-muted-foreground">{"}"}</span>
-          </div>
-        )
+        newSet.add(blockId)
       }
-    } else if (typeof data === "string") {
-      return <span className="text-green-600">"{data}"</span>
-    } else if (typeof data === "number") {
-      return <span className="text-orange-600">{data}</span>
-    } else if (typeof data === "boolean") {
-      return <span className="text-purple-600">{data.toString()}</span>
-    } else if (data === null) {
-      return <span className="text-gray-500">null</span>
-    } else {
-      return <span>{String(data)}</span>
-    }
-  }
+      return newSet
+    })
+  }, [])
 
-  const renderCodeBlock = (codeBlock: CodeBlock, index: number) => {
-    const blockId = `code-${index}`
+  // Render streaming indicator
+  const StreamingIndicator = memo(() => (
+    <div className="flex items-center gap-2 mt-2 text-muted-foreground">
+      <div className="flex space-x-1">
+        <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+        <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+        <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+      </div>
+      <span className="text-sm">AI is thinking...</span>
+    </div>
+  ))
+
+  return (
+    <div className="space-y-3">
+      {contentBlocks.map((block, index) => (
+        <ContentBlockRenderer
+          key={`${messageId}-${index}`}
+          block={block}
+          blockId={`${messageId}-${index}`}
+          isDark={isDark}
+          onCopy={handleCopy}
+          onToggleCollapse={toggleCollapse}
+          isCopied={copiedItems.has(`${messageId}-${index}`)}
+          isCollapsed={collapsedBlocks.has(`${messageId}-${index}`)}
+        />
+      ))}
+      {isStreaming && <StreamingIndicator />}
+    </div>
+  )
+})
+
+// Content block renderer component
+const ContentBlockRenderer = memo(
+  ({
+    block,
+    blockId,
+    isDark,
+    onCopy,
+    onToggleCollapse,
+    isCopied,
+    isCollapsed,
+  }: {
+    block: ContentBlock
+    blockId: string
+    isDark: boolean
+    onCopy: (text: string, id: string) => void
+    onToggleCollapse: (blockId: string) => void
+    isCopied: boolean
+    isCollapsed: boolean
+  }) => {
+    switch (block.type) {
+      case "code":
+        return (
+          <CodeBlock
+            code={block.content}
+            language={block.language || "text"}
+            blockId={blockId}
+            isDark={isDark}
+            onCopy={onCopy}
+            onToggleCollapse={onToggleCollapse}
+            isCopied={isCopied}
+            isCollapsed={isCollapsed}
+          />
+        )
+
+      case "json":
+        return (
+          <JsonBlock
+            json={block.content}
+            blockId={blockId}
+            isDark={isDark}
+            onCopy={onCopy}
+            onToggleCollapse={onToggleCollapse}
+            isCopied={isCopied}
+            isCollapsed={isCollapsed}
+          />
+        )
+
+      case "text":
+      default:
+        return <MarkdownBlock content={block.content} isDark={isDark} />
+    }
+  },
+)
+
+// Code block component
+const CodeBlock = memo(
+  ({
+    code,
+    language,
+    blockId,
+    isDark,
+    onCopy,
+    onToggleCollapse,
+    isCopied,
+    isCollapsed,
+  }: {
+    code: string
+    language: string
+    blockId: string
+    isDark: boolean
+    onCopy: (text: string, id: string) => void
+    onToggleCollapse: (blockId: string) => void
+    isCopied: boolean
+    isCollapsed: boolean
+  }) => {
+    const lineCount = code.split("\n").length
+    const shouldShowCollapse = lineCount > 20
 
     return (
-      <Card key={index} className="my-3 overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2 bg-muted border-b">
-          <div className="flex items-center gap-2">
-            <Code className="h-4 w-4" />
-            <Badge variant="secondary" className="text-xs">
-              {codeBlock.language}
-            </Badge>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            onClick={() => copyToClipboard(codeBlock.code, blockId)}
-          >
-            {copiedBlock === blockId ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-          </Button>
-        </div>
-        <div className="p-0">
-          <SyntaxHighlighter
-            language={codeBlock.language}
-            style={isDarkMode ? oneDark : oneLight}
-            customStyle={{
-              margin: 0,
-              borderRadius: 0,
-              fontSize: "0.875rem",
-            }}
-            wrapLongLines
-          >
-            {codeBlock.code}
-          </SyntaxHighlighter>
-        </div>
-      </Card>
-    )
-  }
-
-  // Custom components for ReactMarkdown
-  const markdownComponents = {
-    code({ node, inline, className, children, ...props }: any) {
-      const match = /language-(\w+)/.exec(className || "")
-      const language = match ? match[1] : ""
-
-      if (!inline && language) {
-        const codeString = String(children).replace(/\n$/, "")
-        const blockId = `markdown-code-${Math.random()}`
-
-        return (
-          <Card className="my-3 overflow-hidden border border-muted">
-            <div className="flex items-center justify-between px-3 py-2 bg-muted border-b">
-              <div className="flex items-center gap-2">
-                <Code className="h-4 w-4" />
-                <Badge variant="secondary" className="text-xs">
-                  {language}
-                </Badge>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={() => copyToClipboard(codeString, blockId)}
-              >
-                {copiedBlock === blockId ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-              </Button>
-            </div>
-            <div className="p-0">
-              <SyntaxHighlighter
-                language={language}
-                style={isDarkMode ? oneDark : oneLight}
-                customStyle={{
-                  margin: 0,
-                  borderRadius: 0,
-                  fontSize: "0.875rem",
-                }}
-                wrapLongLines
-              >
-                {codeString}
-              </SyntaxHighlighter>
-            </div>
-          </Card>
-        )
-      }
-
-      return (
-        <code
-          className={`px-1.5 py-0.5 rounded text-sm font-mono ${
-            isDarkMode ? "bg-gray-800 text-gray-100" : "bg-gray-100 text-gray-800"
-          }`}
-          {...props}
+      <Card
+        className={cn(
+          "overflow-hidden transition-all duration-200",
+          isDark ? "bg-gray-900 border-gray-700" : "bg-gray-50 border-gray-200",
+        )}
+      >
+        {/* Header */}
+        <div
+          className={cn(
+            "flex items-center justify-between px-4 py-2 border-b",
+            isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200",
+          )}
         >
-          {children}
-        </code>
-      )
-    },
-    h1: ({ children }: any) => (
-      <h1
-        className={`text-2xl font-bold mt-6 mb-4 pb-2 border-b ${
-          isDarkMode ? "text-white border-gray-700" : "text-gray-900 border-gray-200"
-        }`}
-      >
-        {children}
-      </h1>
-    ),
-    h2: ({ children }: any) => (
-      <h2
-        className={`text-xl font-semibold mt-5 mb-3 pb-2 border-b ${
-          isDarkMode ? "text-white border-gray-700" : "text-gray-900 border-gray-200"
-        }`}
-      >
-        {children}
-      </h2>
-    ),
-    h3: ({ children }: any) => (
-      <h3 className={`text-lg font-semibold mt-4 mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{children}</h3>
-    ),
-    h4: ({ children }: any) => (
-      <h4 className={`text-base font-semibold mt-3 mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{children}</h4>
-    ),
-    h5: ({ children }: any) => (
-      <h5 className={`text-sm font-semibold mt-3 mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{children}</h5>
-    ),
-    h6: ({ children }: any) => (
-      <h6 className={`text-xs font-semibold mt-3 mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{children}</h6>
-    ),
-    p: ({ children }: any) => (
-      <p className={`mb-3 leading-relaxed ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}>{children}</p>
-    ),
-    ul: ({ children }: any) => <ul className="mb-3 ml-4 space-y-1 list-disc">{children}</ul>,
-    ol: ({ children }: any) => <ol className="mb-3 ml-4 space-y-1 list-decimal">{children}</ol>,
-    li: ({ children }: any) => (
-      <li className={`leading-relaxed ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}>{children}</li>
-    ),
-    blockquote: ({ children }: any) => (
-      <blockquote
-        className={`border-l-4 pl-4 italic my-3 ${
-          isDarkMode ? "border-gray-600 bg-gray-800 text-gray-300" : "border-gray-300 bg-gray-50 text-gray-600"
-        } py-2 rounded-r`}
-      >
-        {children}
-      </blockquote>
-    ),
-    a: ({ href, children }: any) => (
-      <a
-        href={href}
-        className={`hover:underline ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {children}
-      </a>
-    ),
-    table: ({ children }: any) => (
-      <div className="overflow-x-auto my-3">
-        <table className={`min-w-full border rounded-lg ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
-          {children}
-        </table>
-      </div>
-    ),
-    thead: ({ children }: any) => <thead className={isDarkMode ? "bg-gray-800" : "bg-gray-100"}>{children}</thead>,
-    th: ({ children }: any) => (
-      <th
-        className={`border px-3 py-2 text-left font-semibold ${
-          isDarkMode ? "border-gray-700 text-gray-200" : "border-gray-200 text-gray-700"
-        }`}
-      >
-        {children}
-      </th>
-    ),
-    td: ({ children }: any) => (
-      <td
-        className={`border px-3 py-2 ${isDarkMode ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-700"}`}
-      >
-        {children}
-      </td>
-    ),
-    strong: ({ children }: any) => (
-      <strong className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{children}</strong>
-    ),
-    em: ({ children }: any) => (
-      <em className={`italic ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}>{children}</em>
-    ),
-    hr: () => <hr className={`my-4 border-t ${isDarkMode ? "border-gray-700" : "border-gray-200"}`} />,
-    input: ({ type, checked, ...props }: any) => {
-      if (type === "checkbox") {
-        return <input type="checkbox" checked={checked} readOnly className="mr-2" {...props} />
-      }
-      return <input type={type} {...props} />
-    },
-  }
+          <div className="flex items-center gap-2">
+            <Code2 className="h-4 w-4" />
+            <Badge variant="secondary" className="text-xs font-mono">
+              {language}
+            </Badge>
+            {lineCount > 1 && <span className="text-xs text-muted-foreground">{lineCount} lines</span>}
+          </div>
 
-  // Render based on content type
-  switch (contentType) {
-    case "json":
-      return (
-        <Card className="my-2 overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2 bg-muted border-b">
-            <div className="flex items-center gap-2">
-              <Braces className="h-4 w-4" />
-              <Badge variant="secondary" className="text-xs">
-                JSON
-              </Badge>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              onClick={() => copyToClipboard(content, "json-content")}
-            >
-              {copiedBlock === "json-content" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          <div className="flex items-center gap-1">
+            {shouldShowCollapse && (
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onToggleCollapse(blockId)}>
+                {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onCopy(code, blockId)}>
+              {isCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
             </Button>
           </div>
-          <div className="p-3 font-mono text-sm overflow-x-auto">
-            {parsedContent.jsonData && renderJson(parsedContent.jsonData.data)}
-          </div>
-        </Card>
-      )
-
-    case "markdown":
-    case "mixed":
-      return (
-        <div className="relative">
-          <div className={`prose prose-sm max-w-none ${isDarkMode ? "prose-invert" : ""}`}>
-            <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
-              {parsedContent.text || content}
-            </ReactMarkdown>
-          </div>
         </div>
-      )
 
-    default:
-      return (
+        {/* Content */}
+        {!isCollapsed && (
+          <div className="relative">
+            <SyntaxHighlighter
+              language={language}
+              style={isDark ? vscDarkPlus : vs}
+              customStyle={{
+                margin: 0,
+                padding: "1rem",
+                backgroundColor: "transparent",
+                fontSize: "0.875rem",
+                lineHeight: "1.5",
+              }}
+              showLineNumbers={lineCount > 5}
+              wrapLines
+              wrapLongLines
+            >
+              {code}
+            </SyntaxHighlighter>
+          </div>
+        )}
+
+        {isCollapsed && (
+          <div className="px-4 py-2 text-sm text-muted-foreground">Code block collapsed ({lineCount} lines)</div>
+        )}
+      </Card>
+    )
+  },
+)
+
+// JSON block component
+const JsonBlock = memo(
+  ({
+    json,
+    blockId,
+    isDark,
+    onCopy,
+    onToggleCollapse,
+    isCopied,
+    isCollapsed,
+  }: {
+    json: string
+    blockId: string
+    isDark: boolean
+    onCopy: (text: string, id: string) => void
+    onToggleCollapse: (blockId: string) => void
+    isCopied: boolean
+    isCollapsed: boolean
+  }) => {
+    const parsedJson = useMemo(() => {
+      try {
+        return JSON.parse(json)
+      } catch {
+        return null
+      }
+    }, [json])
+
+    const formattedJson = useMemo(() => {
+      return parsedJson ? JSON.stringify(parsedJson, null, 2) : json
+    }, [parsedJson, json])
+
+    return (
+      <Card className={cn("overflow-hidden", isDark ? "bg-gray-900 border-gray-700" : "bg-blue-50 border-blue-200")}>
         <div
-          className={`whitespace-pre-wrap break-words leading-relaxed ${
-            isDarkMode ? "text-gray-200" : "text-gray-700"
-          }`}
+          className={cn(
+            "flex items-center justify-between px-4 py-2 border-b",
+            isDark ? "bg-gray-800 border-gray-700" : "bg-blue-100 border-blue-200",
+          )}
         >
-          {content}
+          <div className="flex items-center gap-2">
+            <Braces className="h-4 w-4" />
+            <Badge variant="secondary" className="text-xs">
+              JSON
+            </Badge>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onToggleCollapse(blockId)}>
+              {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onCopy(formattedJson, blockId)}>
+              {isCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+            </Button>
+          </div>
         </div>
-      )
+
+        {!isCollapsed && (
+          <div className="p-4">
+            <SyntaxHighlighter
+              language="json"
+              style={isDark ? vscDarkPlus : vs}
+              customStyle={{
+                margin: 0,
+                backgroundColor: "transparent",
+                fontSize: "0.875rem",
+              }}
+            >
+              {formattedJson}
+            </SyntaxHighlighter>
+          </div>
+        )}
+      </Card>
+    )
+  },
+)
+
+// Markdown block component
+const MarkdownBlock = memo(({ content, isDark }: { content: string; isDark: boolean }) => {
+  const markdownComponents = useMemo(
+    () => ({
+      // Code blocks
+      code({ node, inline, className, children, ...props }: any) {
+        const match = /language-(\w+)/.exec(className || "")
+        const language = match ? match[1] : "text"
+
+        if (!inline) {
+          return (
+            <div className="my-4">
+              <SyntaxHighlighter
+                language={language}
+                style={isDark ? vscDarkPlus : vs}
+                customStyle={{
+                  borderRadius: "0.5rem",
+                  fontSize: "0.875rem",
+                }}
+              >
+                {String(children).replace(/\n$/, "")}
+              </SyntaxHighlighter>
+            </div>
+          )
+        }
+
+        return (
+          <code
+            className={cn(
+              "px-1.5 py-0.5 rounded text-sm font-mono",
+              isDark
+                ? "bg-gray-800 text-gray-100 border border-gray-700"
+                : "bg-gray-100 text-gray-800 border border-gray-200",
+            )}
+            {...props}
+          >
+            {children}
+          </code>
+        )
+      },
+
+      // Headers
+      h1: ({ children }: any) => (
+        <h1
+          className={cn(
+            "text-2xl font-bold mt-6 mb-4 pb-2 border-b",
+            isDark ? "text-white border-gray-700" : "text-gray-900 border-gray-200",
+          )}
+        >
+          {children}
+        </h1>
+      ),
+      h2: ({ children }: any) => (
+        <h2
+          className={cn(
+            "text-xl font-semibold mt-5 mb-3 pb-2 border-b",
+            isDark ? "text-white border-gray-700" : "text-gray-900 border-gray-200",
+          )}
+        >
+          {children}
+        </h2>
+      ),
+      h3: ({ children }: any) => (
+        <h3 className={cn("text-lg font-semibold mt-4 mb-2", isDark ? "text-white" : "text-gray-900")}>{children}</h3>
+      ),
+
+      // Paragraphs and text
+      p: ({ children }: any) => (
+        <p className={cn("mb-3 leading-relaxed", isDark ? "text-gray-200" : "text-gray-700")}>{children}</p>
+      ),
+
+      // Lists
+      ul: ({ children }: any) => (
+        <ul className="mb-3 ml-6 space-y-1 list-disc marker:text-muted-foreground">{children}</ul>
+      ),
+      ol: ({ children }: any) => (
+        <ol className="mb-3 ml-6 space-y-1 list-decimal marker:text-muted-foreground">{children}</ol>
+      ),
+      li: ({ children }: any) => (
+        <li className={cn("leading-relaxed", isDark ? "text-gray-200" : "text-gray-700")}>{children}</li>
+      ),
+
+      // Blockquotes
+      blockquote: ({ children }: any) => (
+        <blockquote
+          className={cn(
+            "border-l-4 pl-4 italic my-4 py-2 rounded-r",
+            isDark ? "border-blue-500 bg-blue-950/20 text-blue-200" : "border-blue-500 bg-blue-50 text-blue-800",
+          )}
+        >
+          {children}
+        </blockquote>
+      ),
+
+      // Links
+      a: ({ href, children }: any) => (
+        <a
+          href={href}
+          className={cn(
+            "underline underline-offset-2 hover:no-underline transition-colors",
+            isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-800",
+          )}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {children}
+        </a>
+      ),
+
+      // Tables
+      table: ({ children }: any) => (
+        <div className="overflow-x-auto my-4">
+          <table className={cn("min-w-full border rounded-lg", isDark ? "border-gray-700" : "border-gray-200")}>
+            {children}
+          </table>
+        </div>
+      ),
+      thead: ({ children }: any) => <thead className={isDark ? "bg-gray-800" : "bg-gray-50"}>{children}</thead>,
+      th: ({ children }: any) => (
+        <th
+          className={cn(
+            "border px-3 py-2 text-left font-semibold text-sm",
+            isDark ? "border-gray-700 text-gray-200" : "border-gray-200 text-gray-700",
+          )}
+        >
+          {children}
+        </th>
+      ),
+      td: ({ children }: any) => (
+        <td
+          className={cn(
+            "border px-3 py-2 text-sm",
+            isDark ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-700",
+          )}
+        >
+          {children}
+        </td>
+      ),
+
+      // Emphasis
+      strong: ({ children }: any) => (
+        <strong className={cn("font-semibold", isDark ? "text-white" : "text-gray-900")}>{children}</strong>
+      ),
+      em: ({ children }: any) => (
+        <em className={cn("italic", isDark ? "text-gray-200" : "text-gray-700")}>{children}</em>
+      ),
+
+      // Horizontal rule
+      hr: () => <hr className={cn("my-6 border-t", isDark ? "border-gray-700" : "border-gray-200")} />,
+
+      // Checkboxes
+      input: ({ type, checked, ...props }: any) => {
+        if (type === "checkbox") {
+          return <input type="checkbox" checked={checked} readOnly className="mr-2 accent-blue-500" {...props} />
+        }
+        return <input type={type} {...props} />
+      },
+    }),
+    [isDark],
+  )
+
+  return (
+    <div className={cn("prose prose-sm max-w-none", isDark ? "prose-invert" : "")}>
+      <ReactMarkdown
+        components={markdownComponents}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
+})
+
+// Content parsing function
+function parseContent(content: string): ContentBlock[] {
+  const blocks: ContentBlock[] = []
+
+  // Split by code blocks first
+  const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g
+  let lastIndex = 0
+  let match
+
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    // Add text before code block
+    if (match.index > lastIndex) {
+      const textContent = content.slice(lastIndex, match.index).trim()
+      if (textContent) {
+        // Check if it's JSON
+        if (isJsonString(textContent)) {
+          blocks.push({
+            type: "json",
+            content: textContent,
+          })
+        } else {
+          blocks.push({
+            type: "text",
+            content: textContent,
+          })
+        }
+      }
+    }
+
+    // Add code block
+    const language = match[1] || "text"
+    const code = match[2].trim()
+
+    if (language === "json" || isJsonString(code)) {
+      blocks.push({
+        type: "json",
+        content: code,
+      })
+    } else {
+      blocks.push({
+        type: "code",
+        content: code,
+        language,
+      })
+    }
+
+    lastIndex = match.index + match[0].length
+  }
+
+  // Add remaining text
+  if (lastIndex < content.length) {
+    const remainingContent = content.slice(lastIndex).trim()
+    if (remainingContent) {
+      if (isJsonString(remainingContent)) {
+        blocks.push({
+          type: "json",
+          content: remainingContent,
+        })
+      } else {
+        blocks.push({
+          type: "text",
+          content: remainingContent,
+        })
+      }
+    }
+  }
+
+  // If no blocks were created, treat entire content as text
+  if (blocks.length === 0) {
+    blocks.push({
+      type: "text",
+      content: content,
+    })
+  }
+
+  return blocks
+}
+
+// Utility function to check if string is JSON
+function isJsonString(str: string): boolean {
+  try {
+    const trimmed = str.trim()
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return false
+    JSON.parse(trimmed)
+    return true
+  } catch {
+    return false
   }
 }
+
+MessageContent.displayName = "MessageContent"
+
+export { MessageContent }
