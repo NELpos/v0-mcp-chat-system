@@ -229,21 +229,21 @@ export default function MessageList({ messages = [] }: MessageListProps) {
               {/* Message Content Block */}
               <div
                 className={cn(
-                  "w-full rounded-lg px-4 py-3 shadow-sm border",
+                  "w-full rounded-lg px-4 py-3 shadow-sm border text-sm",
                   isUser
                     ? "bg-primary/5 border-primary/20 dark:bg-primary/10 dark:border-primary/30"
                     : "bg-card border-border",
                 )}
               >
-                <div className={cn("text-foreground")}>
-                  {isUser ? (
-                    // User messages - simple text
-                    <div className="whitespace-pre-wrap break-words">{message.content}</div>
-                  ) : (
-                    // AI messages - support structured blocks and legacy content
+                {isUser ? (
+                  // User messages - simple text with consistent font size
+                  <div className="whitespace-pre-wrap break-words text-foreground">{message.content}</div>
+                ) : (
+                  // AI messages - support structured blocks and legacy content with consistent font size
+                  <div className="text-foreground">
                     <MessageContent content={message.content} messageId={message.id} />
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
