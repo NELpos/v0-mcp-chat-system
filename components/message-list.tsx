@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Bot, User, Copy, Check, ThumbsUp, ThumbsDown } from "lucide-react"
+import { Bot, User, Copy, Check, ThumbsUp, ThumbsDown, AlertTriangle } from "lucide-react"
 import { useState } from "react"
 import { MessageContent } from "@/components/message-content"
 import { toast } from "@/components/ui/use-toast"
@@ -66,6 +66,36 @@ export default function MessageList({ messages = [] }: MessageListProps) {
     return messageFeedback.find((f) => f.messageId === messageId)?.type || null
   }
 
+  const getMessageType = (content: string, role: string) => {
+    if (role === "user") {
+      return "User Message"
+    }
+
+    try {
+      const parsed = JSON.parse(content)
+      if (typeof parsed === "object" && parsed !== null) {
+        return "Structured Response"
+      }
+    } catch (e) {
+      // Not a JSON object, so it's a legacy response
+    }
+
+    return "AI Response"
+  }
+
+  const isStructuredResponse = (content: string) => {
+    try {
+      const parsed = JSON.parse(content)
+      if (typeof parsed === "object" && parsed !== null) {
+        return true
+      }
+    } catch (e) {
+      // Not a JSON object, so it's a legacy response
+    }
+
+    return false
+  }
+
   if (safeMessages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -83,18 +113,26 @@ export default function MessageList({ messages = [] }: MessageListProps) {
   }
 
   return (
-    <div className="space-y-6 px-1">
+    <div className="space-y-4 px-1">
       {safeMessages.map((message, index) => {
         const isUser = message.role === "user"
-        const isLastMessage = index === safeMessages.length - 1
         const feedback = getFeedbackForMessage(message.id)
+        const messageType = getMessageType(message.content, message.role)
+        const isStructured = isStructuredResponse(message.content)
 
         return (
-          <div key={message.id} className={cn("flex gap-4 group", isUser ? "flex-row-reverse" : "flex-row")}>
-            {/* Avatar */}
-            <div className="flex-shrink-0">
+          <div key={message.id} className="flex gap-3 group">
+            {/* Avatar - 항상 왼쪽에 배치 */}
+            <div className="flex-shrink-0 mt-1">
               <Avatar
-                className={cn("w-8 h-8", isUser ? "bg-primary text-primary-foreground" : "bg-emerald-500 text-white")}
+                className={cn(
+                  "w-8 h-8",
+                  isUser
+                    ? "bg-primary text-primary-foreground"
+                    : isStructured
+                      ? "bg-purple-500 text-white"
+                      : "bg-emerald-500 text-white",
+                )}
               >
                 <AvatarFallback className="bg-transparent">
                   {isUser ? <User size={16} /> : <Bot size={16} />}
@@ -102,74 +140,55 @@ export default function MessageList({ messages = [] }: MessageListProps) {
               </Avatar>
             </div>
 
-            {/* Message Content */}
-            <div
-              className={cn(
-                "flex-1 min-w-0 space-y-2",
-                isUser ? "flex flex-col items-end" : "flex flex-col items-start",
-              )}
-            >
-              {/* Message Bubble */}
-              <div
-                className={cn(
-                  "relative max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
-                  isUser
-                    ? "bg-primary text-primary-foreground rounded-br-md"
-                    : "bg-card border border-border rounded-bl-md",
-                )}
-              >
-                {/* Message Content */}
-                <div className={cn(isUser ? "text-primary-foreground" : "text-foreground")}>
-                  {isUser ? (
-                    // User messages - simple text
-                    <div className="whitespace-pre-wrap break-words">{message.content}</div>
-                  ) : (
-                    // AI messages - support markdown, JSON, code blocks
-                    <MessageContent content={message.content} messageId={message.id} />
-                  )}
-                </div>
-              </div>
-
-              {/* Message Metadata */}
-              <div className={cn("flex items-center justify-between text-xs text-muted-foreground px-2")}>
-                <div className="flex items-center gap-2">
-                  <span>{isUser ? "You" : "AI Assistant"}</span>
-                  <span>•</span>
+            {/* Message Block - 전체 너비 사용 */}
+            <div className="flex-1 min-w-0">
+              {/* Message Header */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="font-medium">{isUser ? "You" : "AI Assistant"}</span>
                   <span>{new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                   {!isUser && (
                     <>
-                      <span>•</span>
-                      <Badge variant="secondary" className="text-xs py-0 px-1">
-                        AI Response
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "text-xs py-0 px-1",
+                          isStructured && "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+                        )}
+                      >
+                        {messageType}
                       </Badge>
+                      {isStructured && (
+                        <div className="flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3 text-purple-500" />
+                          <span className="text-purple-600 dark:text-purple-400 text-xs">MCP Blocks</span>
+                        </div>
+                      )}
                     </>
                   )}
                   {/* Feedback indicator */}
                   {!isUser && feedback && (
-                    <>
-                      <span>•</span>
-                      <div className="flex items-center gap-1">
-                        {feedback === "like" ? (
-                          <ThumbsUp className="h-3 w-3 text-green-600 fill-current" />
-                        ) : (
-                          <ThumbsDown className="h-3 w-3 text-red-600 fill-current" />
-                        )}
-                        <span className={feedback === "like" ? "text-green-600" : "text-red-600"}>
-                          {feedback === "like" ? "Liked" : "Disliked"}
-                        </span>
-                      </div>
-                    </>
+                    <div className="flex items-center gap-1">
+                      {feedback === "like" ? (
+                        <ThumbsUp className="h-3 w-3 text-green-600 fill-current" />
+                      ) : (
+                        <ThumbsDown className="h-3 w-3 text-red-600 fill-current" />
+                      )}
+                      <span className={cn("text-xs", feedback === "like" ? "text-green-600" : "text-red-600")}>
+                        {feedback === "like" ? "Liked" : "Disliked"}
+                      </span>
+                    </div>
                   )}
                 </div>
 
-                {/* Action Buttons */}
+                {/* Action Buttons - AI 메시지의 경우 오른쪽 상단에 배치 */}
                 {!isUser && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {/* Copy Button */}
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                       onClick={() => copyToClipboard(message.content, message.id)}
                       title="Copy message"
                     >
@@ -181,7 +200,7 @@ export default function MessageList({ messages = [] }: MessageListProps) {
                       variant="ghost"
                       size="sm"
                       className={cn(
-                        "h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted",
+                        "h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted",
                         feedback === "like" && "text-green-600 hover:text-green-700",
                       )}
                       onClick={() => handleFeedback(message.id, "like")}
@@ -195,7 +214,7 @@ export default function MessageList({ messages = [] }: MessageListProps) {
                       variant="ghost"
                       size="sm"
                       className={cn(
-                        "h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted",
+                        "h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted",
                         feedback === "dislike" && "text-red-600 hover:text-red-700",
                       )}
                       onClick={() => handleFeedback(message.id, "dislike")}
@@ -205,6 +224,26 @@ export default function MessageList({ messages = [] }: MessageListProps) {
                     </Button>
                   </div>
                 )}
+              </div>
+
+              {/* Message Content Block */}
+              <div
+                className={cn(
+                  "w-full rounded-lg px-4 py-3 shadow-sm border",
+                  isUser
+                    ? "bg-primary/5 border-primary/20 dark:bg-primary/10 dark:border-primary/30"
+                    : "bg-card border-border",
+                )}
+              >
+                <div className={cn("text-foreground")}>
+                  {isUser ? (
+                    // User messages - simple text
+                    <div className="whitespace-pre-wrap break-words">{message.content}</div>
+                  ) : (
+                    // AI messages - support structured blocks and legacy content
+                    <MessageContent content={message.content} messageId={message.id} />
+                  )}
+                </div>
               </div>
             </div>
           </div>
