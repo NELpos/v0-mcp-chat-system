@@ -1,42 +1,46 @@
-export interface SelectedTool {
-  serverId: string
-  toolId: string
-  serverName: string
-  toolName: string
+export interface MCPTool {
+  name: string
+  description: string
+  tags: string[]
 }
 
 export interface ToolGroup {
   id: string
   name: string
   description: string
-  selectedTools: SelectedTool[]
+  tags: string[]
+  tools: MCPTool[]
+  color: string
   createdAt: Date
   updatedAt: Date
   isActive: boolean
+  assignedUsers?: string[]
+  assignedGroups?: string[]
 }
 
 export interface User {
   id: string
   name: string
   email: string
-  role: "admin" | "user" | "guest"
-  avatarUrl?: string
+  role: string
 }
 
-export interface UserGroup {
+export interface Group {
   id: string
   name: string
   description: string
-  members: User[]
+  memberCount: number
 }
 
-export interface Permission {
+export interface ToolAssignment {
   id: string
-  userId?: string
-  userGroupId?: string
   toolGroupId: string
-  accessLevel: "read" | "write" | "admin"
-  createdAt: Date
-  updatedAt: Date
-  expiresAt?: Date
+  userId?: string
+  groupId?: string
+  permissions: {
+    canView: boolean
+    canExecute: boolean
+  }
+  assignedAt: Date
+  assignedBy: string
 }

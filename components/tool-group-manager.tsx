@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Plus, Search, Edit, Trash2, Settings, Tag, X, Users, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -13,641 +14,841 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Plus,
-  Search,
-  MoreHorizontal,
-  Boxes,
-  PenToolIcon as Tool,
-  Edit,
-  Trash2,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Server,
-  CheckSquare,
-  Square,
-} from "lucide-react"
-import { mcpServers } from "@/lib/mcp-servers"
-import type { ToolGroup, SelectedTool } from "@/types/tool-group"
-import { toast } from "@/components/ui/use-toast"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { fetchMCPTools, groupToolsByTags, createToolGroupFromTags } from "@/lib/mcp-tools"
+import type { ToolGroup, MCPTool } from "@/types/tool-group"
 
-// Mock data for tool groups
-const mockToolGroups: ToolGroup[] = [
-  {
-    id: "group-1",
-    name: "Development Workflow",
-    description: "Tools for software development and code management",
-    selectedTools: [
-      { serverId: "github", toolId: "create-repository", serverName: "GitHub", toolName: "Create Repository" },
-      { serverId: "github", toolId: "create-issue", serverName: "GitHub", toolName: "Create Issue" },
-      {
-        serverId: "code-interpreter",
-        toolId: "execute-python",
-        serverName: "Code Interpreter",
-        toolName: "Execute Python",
-      },
-    ],
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-20"),
-    isActive: true,
-  },
-  {
-    id: "group-2",
-    name: "Project Management",
-    description: "Tools for project management and team collaboration",
-    selectedTools: [
-      { serverId: "jira", toolId: "create-issue", serverName: "Jira", toolName: "Create Issue" },
-      { serverId: "jira", toolId: "search-issues", serverName: "Jira", toolName: "Search Issues" },
-      { serverId: "slack", toolId: "send-message", serverName: "Slack", toolName: "Send Message" },
-      { serverId: "atlassian", toolId: "create-page", serverName: "Atlassian", toolName: "Create Page" },
-    ],
-    createdAt: new Date("2024-01-10"),
-    updatedAt: new Date("2024-01-18"),
-    isActive: true,
-  },
+// Mock data for users and groups
+const mockUsers = [
+  { id: "1", name: "John Doe", email: "john@example.com", role: "Admin" },
+  { id: "2", name: "Jane Smith", email: "jane@example.com", role: "User" },
+  { id: "3", name: "Bob Johnson", email: "bob@example.com", role: "User" },
+  { id: "4", name: "Alice Brown", email: "alice@example.com", role: "Manager" },
+]
+
+const mockGroups = [
+  { id: "1", name: "Developers", description: "Development team members", memberCount: 8 },
+  { id: "2", name: "Analysts", description: "Data analysts and researchers", memberCount: 5 },
+  { id: "3", name: "Managers", description: "Team leads and managers", memberCount: 3 },
+  { id: "4", name: "Security Team", description: "Security specialists", memberCount: 4 },
 ]
 
 export function ToolGroupManager() {
-  const [toolGroups, setToolGroups] = useState<ToolGroup[]>(mockToolGroups)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedGroup, setSelectedGroup] = useState<ToolGroup | null>(null)
+  const [toolGroups, setToolGroups] = useState<ToolGroup[]>([])
+  const [availableTools, setAvailableTools] = useState<MCPTool[]>([])
+  const [availableTags, setAvailableTags] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null)
-  const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set())
+  const [editingGroup, setEditingGroup] = useState<ToolGroup | null>(null)
 
-  // Form state
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    selectedTools: new Set<string>(),
-  })
+  // Create dialog state
+  const [newGroupName, setNewGroupName] = useState("")
+  const [newGroupDescription, setNewGroupDescription] = useState("")
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([])
+  const [selectedTools, setSelectedTools] = useState<string[]>([])
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([])
+  const [activeTab, setActiveTab] = useState("tools")
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    setIsLoading(true)
+    try {
+      const tools = await fetchMCPTools()
+      setAvailableTools(tools)
+
+      // Extract unique tags
+      const allTags = tools.flatMap((tool) => tool.tags)
+      const uniqueTags = Array.from(new Set(allTags)).filter(Boolean)
+      setAvailableTags(uniqueTags)
+
+      // Create auto groups from tags
+      const grouped = groupToolsByTags(tools)
+      const autoGroups = Object.entries(grouped).map(([tag, tools]) => createToolGroupFromTags(tag, tools))
+      setToolGroups(autoGroups)
+    } catch (error) {
+      console.error("Failed to load MCP tools:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const filteredGroups = toolGroups.filter(
     (group) =>
-      group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      group.description.toLowerCase().includes(searchTerm.toLowerCase()),
+      group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      group.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      group.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
-  const handleCreateGroup = () => {
-    setFormData({
-      name: "",
-      description: "",
-      selectedTools: new Set(),
-    })
-    setExpandedServers(new Set())
-    setIsCreateDialogOpen(true)
+  const filteredTools =
+    selectedTagFilters.length > 0
+      ? availableTools.filter((tool) => selectedTagFilters.some((tag) => tool.tags.includes(tag)))
+      : availableTools
+
+  const createGroup = () => {
+    if (!newGroupName.trim() || selectedTools.length === 0) return
+
+    const selectedToolObjects = availableTools.filter((tool) => selectedTools.includes(tool.name))
+    const groupTags = Array.from(new Set(selectedToolObjects.flatMap((tool) => tool.tags)))
+
+    const newGroup: ToolGroup = {
+      id: `custom-${Date.now()}`,
+      name: newGroupName.trim(),
+      description: newGroupDescription.trim(),
+      tags: groupTags,
+      tools: selectedToolObjects,
+      color: "bg-blue-100 text-blue-800",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isActive: true,
+      assignedUsers: selectedUsers,
+      assignedGroups: selectedGroups,
+    }
+
+    setToolGroups((prev) => [...prev, newGroup])
+    resetCreateDialog()
   }
 
-  const handleEditGroup = (group: ToolGroup) => {
-    setSelectedGroup(group)
-    const selectedToolIds = new Set(group.selectedTools.map((t) => `${t.serverId}:${t.toolId}`))
-    setFormData({
-      name: group.name,
-      description: group.description,
-      selectedTools: selectedToolIds,
-    })
-    // Expand servers that have selected tools
-    const serversWithSelectedTools = new Set(group.selectedTools.map((t) => t.serverId))
-    setExpandedServers(serversWithSelectedTools)
+  const updateGroup = () => {
+    if (!editingGroup || !newGroupName.trim() || selectedTools.length === 0) return
+
+    const selectedToolObjects = availableTools.filter((tool) => selectedTools.includes(tool.name))
+    const groupTags = Array.from(new Set(selectedToolObjects.flatMap((tool) => tool.tags)))
+
+    const updatedGroup: ToolGroup = {
+      ...editingGroup,
+      name: newGroupName.trim(),
+      description: newGroupDescription.trim(),
+      tags: groupTags,
+      tools: selectedToolObjects,
+      assignedUsers: selectedUsers,
+      assignedGroups: selectedGroups,
+      updatedAt: new Date(),
+    }
+
+    setToolGroups((prev) => prev.map((group) => (group.id === editingGroup.id ? updatedGroup : group)))
+    resetEditDialog()
+  }
+
+  const resetCreateDialog = () => {
+    setIsCreateDialogOpen(false)
+    setNewGroupName("")
+    setNewGroupDescription("")
+    setSelectedTagFilters([])
+    setSelectedTools([])
+    setSelectedUsers([])
+    setSelectedGroups([])
+    setActiveTab("tools")
+  }
+
+  const resetEditDialog = () => {
+    setIsEditDialogOpen(false)
+    setEditingGroup(null)
+    setNewGroupName("")
+    setNewGroupDescription("")
+    setSelectedTagFilters([])
+    setSelectedTools([])
+    setSelectedUsers([])
+    setSelectedGroups([])
+    setActiveTab("tools")
+  }
+
+  const toggleTagFilter = (tag: string) => {
+    setSelectedTagFilters((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+  }
+
+  const removeTagFilter = (tag: string) => {
+    setSelectedTagFilters((prev) => prev.filter((t) => t !== tag))
+  }
+
+  const clearAllFilters = () => {
+    setSelectedTagFilters([])
+  }
+
+  const toggleToolSelection = (toolName: string) => {
+    setSelectedTools((prev) =>
+      prev.includes(toolName) ? prev.filter((name) => name !== toolName) : [...prev, toolName],
+    )
+  }
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUsers((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]))
+  }
+
+  const toggleGroupSelection = (groupId: string) => {
+    setSelectedGroups((prev) => (prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]))
+  }
+
+  const toggleGroupStatus = (groupId: string) => {
+    setToolGroups((prev) =>
+      prev.map((group) => (group.id === groupId ? { ...group, isActive: !group.isActive } : group)),
+    )
+  }
+
+  const deleteGroup = (groupId: string) => {
+    setToolGroups((prev) => prev.filter((group) => group.id !== groupId))
+  }
+
+  const startEdit = (group: ToolGroup) => {
+    setEditingGroup(group)
+    setNewGroupName(group.name)
+    setNewGroupDescription(group.description)
+    setSelectedTools(group.tools.map((tool) => tool.name))
+    setSelectedUsers(group.assignedUsers || [])
+    setSelectedGroups(group.assignedGroups || [])
+    setActiveTab("tools")
     setIsEditDialogOpen(true)
   }
 
-  const handleSaveGroup = () => {
-    if (!formData.name.trim()) {
-      toast({
-        title: "Error",
-        description: "Group name is required",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (formData.selectedTools.size === 0) {
-      toast({
-        title: "Error",
-        description: "Please select at least one tool",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Convert selected tools to SelectedTool objects
-    const selectedToolObjects: SelectedTool[] = Array.from(formData.selectedTools).map((toolKey) => {
-      const [serverId, toolId] = toolKey.split(":")
-      const server = mcpServers.find((s) => s.id === serverId)!
-      const tool = server.tools.find((t) => t.id === toolId)!
-      return {
-        serverId,
-        toolId,
-        serverName: server.name,
-        toolName: tool.name,
-      }
-    })
-
-    if (isCreateDialogOpen) {
-      // Create new group
-      const newGroup: ToolGroup = {
-        id: `group-${Date.now()}`,
-        name: formData.name,
-        description: formData.description,
-        selectedTools: selectedToolObjects,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isActive: true,
-      }
-
-      setToolGroups((prev) => [newGroup, ...prev])
-      setIsCreateDialogOpen(false)
-
-      toast({
-        title: "Success",
-        description: "Tool group created successfully",
-      })
-    } else if (isEditDialogOpen && selectedGroup) {
-      // Update existing group
-      setToolGroups((prev) =>
-        prev.map((group) =>
-          group.id === selectedGroup.id
-            ? {
-                ...group,
-                name: formData.name,
-                description: formData.description,
-                selectedTools: selectedToolObjects,
-                updatedAt: new Date(),
-              }
-            : group,
-        ),
-      )
-      setIsEditDialogOpen(false)
-
-      toast({
-        title: "Success",
-        description: "Tool group updated successfully",
-      })
-    }
-  }
-
-  const handleDeleteGroup = (groupId: string) => {
-    setToolGroups((prev) => prev.filter((group) => group.id !== groupId))
-    setDeleteGroupId(null)
-
-    toast({
-      title: "Success",
-      description: "Tool group deleted successfully",
-    })
-  }
-
-  const handleToggleGroupStatus = (groupId: string) => {
-    setToolGroups((prev) =>
-      prev.map((group) =>
-        group.id === groupId ? { ...group, isActive: !group.isActive, updatedAt: new Date() } : group,
-      ),
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-sm text-muted-foreground">Loading tool groups...</p>
+        </div>
+      </div>
     )
-
-    toast({
-      title: "Success",
-      description: "Tool group status updated",
-    })
   }
-
-  const handleToolSelection = (serverId: string, toolId: string, checked: boolean) => {
-    const toolKey = `${serverId}:${toolId}`
-    setFormData((prev) => {
-      const newSelectedTools = new Set(prev.selectedTools)
-      if (checked) {
-        newSelectedTools.add(toolKey)
-      } else {
-        newSelectedTools.delete(toolKey)
-      }
-      return {
-        ...prev,
-        selectedTools: newSelectedTools,
-      }
-    })
-  }
-
-  const handleServerToggle = (serverId: string) => {
-    const server = mcpServers.find((s) => s.id === serverId)!
-    const serverToolKeys = server.tools.map((tool) => `${serverId}:${tool.id}`)
-    const allSelected = serverToolKeys.every((key) => formData.selectedTools.has(key))
-
-    setFormData((prev) => {
-      const newSelectedTools = new Set(prev.selectedTools)
-      if (allSelected) {
-        // Deselect all tools from this server
-        serverToolKeys.forEach((key) => newSelectedTools.delete(key))
-      } else {
-        // Select all tools from this server
-        serverToolKeys.forEach((key) => newSelectedTools.add(key))
-      }
-      return {
-        ...prev,
-        selectedTools: newSelectedTools,
-      }
-    })
-  }
-
-  const handleSelectAll = () => {
-    const allToolKeys = mcpServers.flatMap((server) => server.tools.map((tool) => `${server.id}:${tool.id}`))
-    const allSelected = allToolKeys.every((key) => formData.selectedTools.has(key))
-
-    setFormData((prev) => ({
-      ...prev,
-      selectedTools: allSelected ? new Set() : new Set(allToolKeys),
-    }))
-  }
-
-  const toggleServerExpansion = (serverId: string) => {
-    setExpandedServers((prev) => {
-      const newExpanded = new Set(prev)
-      if (newExpanded.has(serverId)) {
-        newExpanded.delete(serverId)
-      } else {
-        newExpanded.add(serverId)
-      }
-      return newExpanded
-    })
-  }
-
-  const getServerSelectionState = (serverId: string) => {
-    const server = mcpServers.find((s) => s.id === serverId)!
-    const serverToolKeys = server.tools.map((tool) => `${serverId}:${tool.id}`)
-    const selectedCount = serverToolKeys.filter((key) => formData.selectedTools.has(key)).length
-
-    if (selectedCount === 0) return "none"
-    if (selectedCount === serverToolKeys.length) return "all"
-    return "partial"
-  }
-
-  const getServerTypeColor = (type: string) => {
-    const colors = {
-      productivity: "bg-blue-100 text-blue-800",
-      communication: "bg-green-100 text-green-800",
-      development: "bg-purple-100 text-purple-800",
-      research: "bg-orange-100 text-orange-800",
-      automation: "bg-red-100 text-red-800",
-    }
-    return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800"
-  }
-
-  const allToolKeys = mcpServers.flatMap((server) => server.tools.map((tool) => `${server.id}:${tool.id}`))
-  const allSelected = allToolKeys.length > 0 && allToolKeys.every((key) => formData.selectedTools.has(key))
-  const someSelected = allToolKeys.some((key) => formData.selectedTools.has(key))
 
   return (
     <div className="space-y-6">
-      {/* Header with search and create button */}
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search tool groups..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        <div>
+          <h3 className="text-lg font-medium">Tool Groups</h3>
+          <p className="text-sm text-muted-foreground">Organize and manage your MCP tools into logical groups</p>
         </div>
-        <Button onClick={handleCreateGroup}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Tool Group
-        </Button>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Group
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[800px]">
+            <DialogHeader>
+              <DialogTitle>Create Tool Group</DialogTitle>
+              <DialogDescription>Create a custom tool group and assign it to users or groups</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label htmlFor="group-name">Group Name</Label>
+                  <Input
+                    id="group-name"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="Enter group name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="group-description">Description</Label>
+                  <Textarea
+                    id="group-description"
+                    value={newGroupDescription}
+                    onChange={(e) => setNewGroupDescription(e.target.value)}
+                    placeholder="Enter group description"
+                    rows={2}
+                  />
+                </div>
+              </div>
+
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="tools" className="flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Select Tools ({selectedTools.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="assignments" className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Assign Access ({selectedUsers.length + selectedGroups.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="tools" className="space-y-4">
+                  <div>
+                    <Label>Filter by Tags (Optional)</Label>
+                    <div className="flex flex-wrap gap-2 mt-2 mb-3">
+                      {availableTags.map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant={selectedTagFilters.includes(tag) ? "default" : "outline"}
+                          className="cursor-pointer hover:bg-accent"
+                          onClick={() => toggleTagFilter(tag)}
+                        >
+                          {tag}
+                          {selectedTagFilters.includes(tag) && (
+                            <X
+                              className="h-3 w-3 ml-1"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                removeTagFilter(tag)
+                              }}
+                            />
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
+
+                    {selectedTagFilters.length > 0 && (
+                      <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                        <span>
+                          Filtering by: {selectedTagFilters.join(", ")} ({filteredTools.length} tools)
+                        </span>
+                        <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-auto p-1 text-xs">
+                          Clear all filters
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label>Select Tools ({selectedTools.length} selected)</Label>
+                    {filteredTools.length === 0 && selectedTagFilters.length > 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Tag className="mx-auto h-8 w-8 mb-2" />
+                        <p className="text-sm">No tools found with selected tags</p>
+                        <Button variant="ghost" size="sm" onClick={clearAllFilters} className="mt-2">
+                          Clear filters to see all tools
+                        </Button>
+                      </div>
+                    )}
+
+                    {filteredTools.length > 0 && (
+                      <ScrollArea className="h-64 border rounded-md p-4">
+                        <div className="space-y-3">
+                          {filteredTools.map((tool) => (
+                            <div key={tool.name} className="flex items-start space-x-3">
+                              <Checkbox
+                                id={tool.name}
+                                checked={selectedTools.includes(tool.name)}
+                                onCheckedChange={() => toggleToolSelection(tool.name)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <Label htmlFor={tool.name} className="font-medium cursor-pointer">
+                                      {tool.name}
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground mt-1">{tool.description}</p>
+                                  </div>
+                                  <div className="flex gap-1 ml-2">
+                                    {tool.tags.length > 0 ? (
+                                      tool.tags.map((tag) => (
+                                        <Badge
+                                          key={tag}
+                                          variant={selectedTagFilters.includes(tag) ? "default" : "outline"}
+                                          className="text-xs"
+                                        >
+                                          {tag}
+                                        </Badge>
+                                      ))
+                                    ) : (
+                                      <Badge variant="outline" className="text-xs">
+                                        general
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="assignments" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Users Section */}
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Assign to Users ({selectedUsers.length} selected)
+                      </Label>
+                      <ScrollArea className="h-64 border rounded-md p-4 mt-2">
+                        <div className="space-y-3">
+                          {mockUsers.map((user) => (
+                            <div key={user.id} className="flex items-start space-x-3">
+                              <Checkbox
+                                id={`user-${user.id}`}
+                                checked={selectedUsers.includes(user.id)}
+                                onCheckedChange={() => toggleUserSelection(user.id)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <Label htmlFor={`user-${user.id}`} className="font-medium cursor-pointer">
+                                      {user.name}
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs">
+                                    {user.role}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+
+                    {/* Groups Section */}
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Assign to Groups ({selectedGroups.length} selected)
+                      </Label>
+                      <ScrollArea className="h-64 border rounded-md p-4 mt-2">
+                        <div className="space-y-3">
+                          {mockGroups.map((group) => (
+                            <div key={group.id} className="flex items-start space-x-3">
+                              <Checkbox
+                                id={`group-${group.id}`}
+                                checked={selectedGroups.includes(group.id)}
+                                onCheckedChange={() => toggleGroupSelection(group.id)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <Label htmlFor={`group-${group.id}`} className="font-medium cursor-pointer">
+                                      {group.name}
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">{group.description}</p>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs">
+                                    {group.memberCount} members
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+
+                  {(selectedUsers.length > 0 || selectedGroups.length > 0) && (
+                    <div className="bg-muted/50 p-4 rounded-lg">
+                      <h4 className="font-medium mb-2">Assignment Summary</h4>
+                      <div className="space-y-2 text-sm">
+                        {selectedUsers.length > 0 && (
+                          <div>
+                            <span className="font-medium">Users:</span>{" "}
+                            {selectedUsers.map((userId) => mockUsers.find((u) => u.id === userId)?.name).join(", ")}
+                          </div>
+                        )}
+                        {selectedGroups.length > 0 && (
+                          <div>
+                            <span className="font-medium">Groups:</span>{" "}
+                            {selectedGroups.map((groupId) => mockGroups.find((g) => g.id === groupId)?.name).join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={resetCreateDialog}>
+                Cancel
+              </Button>
+              <Button onClick={createGroup} disabled={!newGroupName.trim() || selectedTools.length === 0}>
+                Create Group
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Tool Group Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[800px]">
+            <DialogHeader>
+              <DialogTitle>Edit Tool Group</DialogTitle>
+              <DialogDescription>Modify the tool group settings and assignments</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label htmlFor="edit-group-name">Group Name</Label>
+                  <Input
+                    id="edit-group-name"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="Enter group name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-group-description">Description</Label>
+                  <Textarea
+                    id="edit-group-description"
+                    value={newGroupDescription}
+                    onChange={(e) => setNewGroupDescription(e.target.value)}
+                    placeholder="Enter group description"
+                    rows={2}
+                  />
+                </div>
+              </div>
+
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="tools" className="flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Select Tools ({selectedTools.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="assignments" className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Assign Access ({selectedUsers.length + selectedGroups.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="tools" className="space-y-4">
+                  <div>
+                    <Label>Filter by Tags (Optional)</Label>
+                    <div className="flex flex-wrap gap-2 mt-2 mb-3">
+                      {availableTags.map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant={selectedTagFilters.includes(tag) ? "default" : "outline"}
+                          className="cursor-pointer hover:bg-accent"
+                          onClick={() => toggleTagFilter(tag)}
+                        >
+                          {tag}
+                          {selectedTagFilters.includes(tag) && (
+                            <X
+                              className="h-3 w-3 ml-1"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                removeTagFilter(tag)
+                              }}
+                            />
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
+
+                    {selectedTagFilters.length > 0 && (
+                      <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                        <span>
+                          Filtering by: {selectedTagFilters.join(", ")} ({filteredTools.length} tools)
+                        </span>
+                        <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-auto p-1 text-xs">
+                          Clear all filters
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label>Select Tools ({selectedTools.length} selected)</Label>
+                    {filteredTools.length === 0 && selectedTagFilters.length > 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Tag className="mx-auto h-8 w-8 mb-2" />
+                        <p className="text-sm">No tools found with selected tags</p>
+                        <Button variant="ghost" size="sm" onClick={clearAllFilters} className="mt-2">
+                          Clear filters to see all tools
+                        </Button>
+                      </div>
+                    )}
+
+                    {filteredTools.length > 0 && (
+                      <ScrollArea className="h-64 border rounded-md p-4">
+                        <div className="space-y-3">
+                          {filteredTools.map((tool) => (
+                            <div key={tool.name} className="flex items-start space-x-3">
+                              <Checkbox
+                                id={`edit-${tool.name}`}
+                                checked={selectedTools.includes(tool.name)}
+                                onCheckedChange={() => toggleToolSelection(tool.name)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <Label htmlFor={`edit-${tool.name}`} className="font-medium cursor-pointer">
+                                      {tool.name}
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground mt-1">{tool.description}</p>
+                                  </div>
+                                  <div className="flex gap-1 ml-2">
+                                    {tool.tags.length > 0 ? (
+                                      tool.tags.map((tag) => (
+                                        <Badge
+                                          key={tag}
+                                          variant={selectedTagFilters.includes(tag) ? "default" : "outline"}
+                                          className="text-xs"
+                                        >
+                                          {tag}
+                                        </Badge>
+                                      ))
+                                    ) : (
+                                      <Badge variant="outline" className="text-xs">
+                                        general
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="assignments" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Users Section */}
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Assign to Users ({selectedUsers.length} selected)
+                      </Label>
+                      <ScrollArea className="h-64 border rounded-md p-4 mt-2">
+                        <div className="space-y-3">
+                          {mockUsers.map((user) => (
+                            <div key={user.id} className="flex items-start space-x-3">
+                              <Checkbox
+                                id={`edit-user-${user.id}`}
+                                checked={selectedUsers.includes(user.id)}
+                                onCheckedChange={() => toggleUserSelection(user.id)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <Label htmlFor={`edit-user-${user.id}`} className="font-medium cursor-pointer">
+                                      {user.name}
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs">
+                                    {user.role}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+
+                    {/* Groups Section */}
+                    <div>
+                      <Label className="text-base font-medium flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Assign to Groups ({selectedGroups.length} selected)
+                      </Label>
+                      <ScrollArea className="h-64 border rounded-md p-4 mt-2">
+                        <div className="space-y-3">
+                          {mockGroups.map((group) => (
+                            <div key={group.id} className="flex items-start space-x-3">
+                              <Checkbox
+                                id={`edit-group-${group.id}`}
+                                checked={selectedGroups.includes(group.id)}
+                                onCheckedChange={() => toggleGroupSelection(group.id)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <Label htmlFor={`edit-group-${group.id}`} className="font-medium cursor-pointer">
+                                      {group.name}
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">{group.description}</p>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs">
+                                    {group.memberCount} members
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+
+                  {(selectedUsers.length > 0 || selectedGroups.length > 0) && (
+                    <div className="bg-muted/50 p-4 rounded-lg">
+                      <h4 className="font-medium mb-2">Assignment Summary</h4>
+                      <div className="space-y-2 text-sm">
+                        {selectedUsers.length > 0 && (
+                          <div>
+                            <span className="font-medium">Users:</span>{" "}
+                            {selectedUsers.map((userId) => mockUsers.find((u) => u.id === userId)?.name).join(", ")}
+                          </div>
+                        )}
+                        {selectedGroups.length > 0 && (
+                          <div>
+                            <span className="font-medium">Groups:</span>{" "}
+                            {selectedGroups.map((groupId) => mockGroups.find((g) => g.id === groupId)?.name).join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={resetEditDialog}>
+                Cancel
+              </Button>
+              <Button onClick={updateGroup} disabled={!newGroupName.trim() || selectedTools.length === 0}>
+                Update Group
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Tool Groups List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Boxes className="h-5 w-5" />
-            Tool Groups ({filteredGroups.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {filteredGroups.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Boxes className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No tool groups found</p>
-              <Button variant="outline" size="sm" className="mt-4" onClick={handleCreateGroup}>
-                Create your first tool group
-              </Button>
-            </div>
-          ) : (
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-4">
-                {filteredGroups.map((group) => (
-                  <Card key={group.id} className="overflow-hidden">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 space-y-3">
-                          {/* Header */}
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-lg">{group.name}</h3>
-                            <Badge variant={group.isActive ? "default" : "secondary"}>
-                              {group.isActive ? "Active" : "Inactive"}
-                            </Badge>
-                          </div>
+      {/* Search */}
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search tool groups..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+      </div>
 
-                          {/* Description */}
-                          <p className="text-sm text-muted-foreground">{group.description}</p>
+      {/* Stats */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Groups</CardTitle>
+            <Settings className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{toolGroups.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Groups</CardTitle>
+            <Settings className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{toolGroups.filter((g) => g.isActive).length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Tools</CardTitle>
+            <Tag className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{availableTools.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Available Tags</CardTitle>
+            <Tag className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{availableTags.length}</div>
+          </CardContent>
+        </Card>
+      </div>
 
-                          {/* Selected Tools */}
-                          <div className="space-y-2">
-                            <h4 className="text-sm font-medium">Selected Tools ({group.selectedTools.length})</h4>
-                            <div className="flex flex-wrap gap-2">
-                              {group.selectedTools.map((tool) => (
-                                <Badge
-                                  key={`${tool.serverId}:${tool.toolId}`}
-                                  variant="outline"
-                                  className="flex items-center gap-1 py-1"
-                                >
-                                  <Server className="h-3 w-3" />
-                                  {tool.serverName}: {tool.toolName}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Metadata */}
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground mt-4">
-                            <span>Created: {group.createdAt.toLocaleDateString()}</span>
-                            <span>Updated: {group.updatedAt.toLocaleDateString()}</span>
-                            <span>Tools: {group.selectedTools.length}</span>
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEditGroup(group)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Group
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleGroupStatus(group.id)}>
-                              {group.isActive ? (
-                                <>
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Deactivate
-                                </>
-                              ) : (
-                                <>
-                                  <Check className="h-4 w-4 mr-2" />
-                                  Activate
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => setDeleteGroupId(group.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete Group
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Create/Edit Dialog */}
-      <Dialog
-        open={isCreateDialogOpen || isEditDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setIsCreateDialogOpen(false)
-            setIsEditDialogOpen(false)
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-[800px] h-[90vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle>{isCreateDialogOpen ? "Create Tool Group" : "Edit Tool Group"}</DialogTitle>
-            <DialogDescription>
-              {isCreateDialogOpen
-                ? "Create a new group by selecting MCP servers and their specific tools."
-                : "Edit this tool group's details and selected tools."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-hidden">
-            <div className="space-y-4 py-4 h-full overflow-y-auto pr-2">
-              <div className="space-y-2">
-                <Label htmlFor="name">Group Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter group name"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe the purpose of this tool group"
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-3 flex-1 min-h-0 flex flex-col">
-                <div className="flex items-center justify-between flex-shrink-0">
-                  <Label>Select MCP Servers and Tools</Label>
-                  <Button variant="outline" size="sm" onClick={handleSelectAll} className="flex items-center gap-2">
-                    {allSelected ? (
-                      <>
-                        <Square className="h-4 w-4" />
-                        Deselect All
-                      </>
-                    ) : (
-                      <>
-                        <CheckSquare className="h-4 w-4" />
-                        Select All
-                      </>
-                    )}
+      {/* Tool Groups Grid */}
+      <div className="grid gap-4 grid-cols-1">
+        {filteredGroups.map((group) => (
+          <Card key={group.id} className={`${group.isActive ? "" : "opacity-60"}`}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <CardTitle className="text-lg">{group.name}</CardTitle>
+                  <Badge className={group.color}>{group.tags.join(", ") || "Custom"}</Badge>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch checked={group.isActive} onCheckedChange={() => toggleGroupStatus(group.id)} />
+                  <Button variant="ghost" size="sm" onClick={() => startEdit(group)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => deleteGroup(group.id)}>
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-
-                <div className="border rounded-md p-4 flex-1 min-h-0 overflow-y-auto">
-                  <div className="space-y-4">
-                    {mcpServers.map((server) => {
-                      const selectionState = getServerSelectionState(server.id)
-                      const isExpanded = expandedServers.has(server.id)
-                      const selectedToolsCount = server.tools.filter((tool) =>
-                        formData.selectedTools.has(`${server.id}:${tool.id}`),
-                      ).length
-
-                      return (
-                        <div key={server.id} className="space-y-2">
-                          {/* Server Header */}
-                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                checked={selectionState === "all"}
-                                ref={(el) => {
-                                  if (el) {
-                                    el.indeterminate = selectionState === "partial"
-                                  }
-                                }}
-                                onCheckedChange={() => handleServerToggle(server.id)}
-                              />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleServerExpansion(server.id)}
-                                className="p-0 h-auto"
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="h-4 w-4" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </div>
-
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <Server className="h-4 w-4" />
-                                <span className="font-medium">{server.name}</span>
-                                <Badge className={getServerTypeColor(server.type)}>{server.type}</Badge>
-                                {server.requiresAuth && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Auth Required
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground mt-1">{server.description}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {selectedToolsCount} of {server.tools.length} tools selected
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Server Tools */}
-                          {isExpanded && (
-                            <div className="ml-6 space-y-2">
-                              {server.tools.map((tool) => {
-                                const toolKey = `${server.id}:${tool.id}`
-                                const isSelected = formData.selectedTools.has(toolKey)
-
-                                return (
-                                  <div key={tool.id} className="flex items-start gap-3 p-2 rounded border">
-                                    <Checkbox
-                                      checked={isSelected}
-                                      onCheckedChange={(checked) =>
-                                        handleToolSelection(server.id, tool.id, checked as boolean)
-                                      }
-                                    />
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2">
-                                        <Tool className="h-3 w-3" />
-                                        <span className="text-sm font-medium">{tool.name}</span>
-                                      </div>
-                                      <p className="text-xs text-muted-foreground mt-1">{tool.description}</p>
-                                      {tool.parameters.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-2">
-                                          {tool.parameters.map((param) => (
-                                            <Badge key={param} variant="secondary" className="text-xs">
-                                              {param}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <p className="text-xs text-muted-foreground flex-shrink-0">
-                  Selected: {formData.selectedTools.size} tools from{" "}
-                  {new Set(Array.from(formData.selectedTools).map((key) => key.split(":")[0])).size} servers
-                </p>
               </div>
+              <CardDescription>{group.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>{group.tools.length} tools</span>
+                  <span>Updated {group.updatedAt.toLocaleDateString()}</span>
+                </div>
+                <Separator />
+                <div className="space-y-1">
+                  {group.tools.slice(0, 3).map((tool) => (
+                    <div key={tool.name} className="text-sm flex items-center justify-between">
+                      <span className="font-medium">{tool.name}</span>
+                      <div className="flex gap-1">
+                        {tool.tags.length > 0 ? (
+                          tool.tags.map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))
+                        ) : (
+                          <Badge variant="outline" className="text-xs">
+                            general
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {group.tools.length > 3 && (
+                    <div className="text-sm text-muted-foreground">+{group.tools.length - 3} more tools</div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filteredGroups.length === 0 && (
+        <div className="text-center py-12">
+          <Settings className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-2 text-sm font-semibold">No tool groups found</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {searchQuery ? "Try adjusting your search criteria" : "Get started by creating your first tool group"}
+          </p>
+          {!searchQuery && (
+            <div className="mt-6">
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Tool Group
+              </Button>
             </div>
-          </div>
-
-          <DialogFooter className="flex-shrink-0">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsCreateDialogOpen(false)
-                setIsEditDialogOpen(false)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSaveGroup}>{isCreateDialogOpen ? "Create Group" : "Save Changes"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteGroupId} onOpenChange={() => setDeleteGroupId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Tool Group</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this tool group? This action cannot be undone. Any permissions associated
-              with this group will also be removed.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (deleteGroupId) {
-                  handleDeleteGroup(deleteGroupId)
-                }
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          )}
+        </div>
+      )}
     </div>
   )
 }
