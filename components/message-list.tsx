@@ -1,19 +1,18 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-
 import { Badge } from "@/components/ui/badge"
-
 import { cn } from "@/lib/utils"
-
 import type { Message } from "ai"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Bot, User, Copy, Check, ThumbsUp, ThumbsDown, AlertTriangle } from "lucide-react"
+import { Bot, User, Copy, Check, ThumbsUp, ThumbsDown, AlertTriangle, Maximize2 } from "lucide-react"
 import { useState } from "react"
 import { MessageContent } from "@/components/message-content"
 import { ThinkingIndicator } from "@/components/thinking-indicator"
 import { toast } from "@/components/ui/use-toast"
 import { memo } from "react"
+import { useDocument } from "@/contexts/document-context"
+import type { DocumentContent } from "@/contexts/document-context"
 
 interface MessageListProps {
   messages?: Message[]
@@ -30,6 +29,7 @@ const MessageList = memo(
   ({ messages = [], isStreaming = false, streamingVariant = "generating" }: MessageListProps) => {
     const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
     const [messageFeedback, setMessageFeedback] = useState<MessageFeedback[]>([])
+    const { openDocument } = useDocument()
 
     // Ensure messages is an array
     const safeMessages = Array.isArray(messages) ? messages : []
@@ -104,6 +104,90 @@ const MessageList = memo(
       return false
     }
 
+    // Check if message content is suitable for document view
+    const isExpandableContent = (content: string) => {
+      // Check for code blocks
+      const codeBlockRegex = /```[\s\S]*?```/g
+      const codeBlocks = content.match(codeBlockRegex)
+
+      // Check for JSON content
+      const isJson = isStructuredResponse(content)
+
+      // Check for long content (more than 500 characters)
+      const isLongContent = content.length > 500
+
+      // Check for multiple lines (more than 10 lines)
+      const lineCount = content.split("\n").length
+      const hasMultipleLines = lineCount > 10
+
+      return !!(codeBlocks && codeBlocks.length > 0) || isJson || isLongContent || hasMultipleLines
+    }
+
+    const extractDocumentContent = (content: string, messageId: string): DocumentContent[] => {
+      const documents: DocumentContent[] = []
+
+      // Extract code blocks
+      const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g
+      let match
+      let codeBlockIndex = 0
+
+      while ((match = codeBlockRegex.exec(content)) !== null) {
+        const language = match[1] || "text"
+        const code = match[2].trim()
+
+        documents.push({
+          id: `${messageId}-code-${codeBlockIndex}`,
+          title: `Code Block ${codeBlockIndex + 1} (${language})`,
+          content: code,
+          type: language === "json" ? "json" : "code",
+          language: language,
+          timestamp: new Date(),
+          messageId: messageId,
+        })
+        codeBlockIndex++
+      }
+
+      // If it's a JSON response, add as JSON document
+      if (isStructuredResponse(content) && documents.length === 0) {
+        documents.push({
+          id: `${messageId}-json`,
+          title: "JSON Response",
+          content: content,
+          type: "json",
+          timestamp: new Date(),
+          messageId: messageId,
+        })
+      }
+
+      // If it's long content without code blocks, add as markdown
+      if (documents.length === 0 && content.length > 500) {
+        documents.push({
+          id: `${messageId}-content`,
+          title: "Message Content",
+          content: content,
+          type: "markdown",
+          timestamp: new Date(),
+          messageId: messageId,
+        })
+      }
+
+      return documents
+    }
+
+    const handleExpandToDocument = (content: string, messageId: string) => {
+      const documents = extractDocumentContent(content, messageId)
+
+      if (documents.length > 0) {
+        // Open the first document (or could open all)
+        openDocument(documents[0])
+
+        // If there are multiple documents, open them all
+        documents.slice(1).forEach((doc) => {
+          setTimeout(() => openDocument(doc), 100)
+        })
+      }
+    }
+
     if (safeMessages.length === 0 && !isStreaming) {
       return (
         <div className="flex-1 flex items-center justify-center">
@@ -127,6 +211,7 @@ const MessageList = memo(
           const feedback = getFeedbackForMessage(message.id)
           const messageType = getMessageType(message.content, message.role)
           const isStructured = isStructuredResponse(message.content)
+          const canExpand = !isUser && isExpandableContent(message.content)
 
           return (
             <div key={message.id} className="flex gap-3 group">
@@ -192,6 +277,19 @@ const MessageList = memo(
                   {/* Action Buttons - AI 메시지의 경우 오른쪽 상단에 배치 */}
                   {!isUser && (
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Expand to Document Button */}
+                      {canExpand && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+                          onClick={() => handleExpandToDocument(message.content, message.id)}
+                          title="Expand to document view"
+                        >
+                          <Maximize2 className="h-3 w-3" />
+                        </Button>
+                      )}
+
                       {/* Copy Button */}
                       <Button
                         variant="ghost"
