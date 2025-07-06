@@ -1,8 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
-import { AppSidebar } from "@/components/app-sidebar"
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { SettingsProvider } from "@/contexts/settings-context"
 import { ThemeProvider } from "@/contexts/theme-context"
 import { Toaster } from "@/components/toaster"
@@ -24,16 +22,13 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <SettingsProvider>
-            <SidebarProvider>
-              <AppSidebar />
-              <SidebarInset>
-                <div className="absolute top-0 right-0 p-4 z-10">
-                  <UserMenu />
-                </div>
-                {children}
-              </SidebarInset>
-              <Toaster />
-            </SidebarProvider>
+            <div className="min-h-screen bg-background">
+              <div className="absolute top-0 right-0 p-4 z-10">
+                <UserMenu />
+              </div>
+              {children}
+            </div>
+            <Toaster />
           </SettingsProvider>
         </ThemeProvider>
       </body>

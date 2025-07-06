@@ -6,12 +6,13 @@ import {
   BookOpen,
   Bot,
   Command,
+  Frame,
   GalleryVerticalEnd,
+  Map,
+  PieChart,
   Settings2,
-  MessageSquare,
-  Users,
-  Shield,
-  Zap,
+  SquareTerminal,
+  Languages,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -29,7 +30,7 @@ const data = {
   },
   teams: [
     {
-      name: "MCP Chat System",
+      name: "Acme Inc",
       logo: GalleryVerticalEnd,
       plan: "Enterprise",
     },
@@ -47,89 +48,51 @@ const data = {
   navMain: [
     {
       title: "Chat",
-      url: "/mcp",
-      icon: MessageSquare,
+      url: "/",
+      icon: Bot,
       isActive: true,
-      items: [
-        {
-          title: "MCP Chat",
-          url: "/mcp",
-        },
-        {
-          title: "RAG Chat",
-          url: "/rag",
-        },
-      ],
     },
     {
-      title: "Management",
-      url: "#",
+      title: "MCP Chat",
+      url: "/mcp",
+      icon: SquareTerminal,
+    },
+    {
+      title: "Translation",
+      url: "/translation",
+      icon: Languages,
+    },
+    {
+      title: "RAG",
+      url: "/rag",
+      icon: BookOpen,
+    },
+    {
+      title: "Prompts",
+      url: "/prompts",
+      icon: Frame,
+    },
+    {
+      title: "Settings",
+      url: "/settings",
       icon: Settings2,
-      items: [
-        {
-          title: "Prompts",
-          url: "/prompts",
-        },
-        {
-          title: "Resources",
-          url: "/rag",
-        },
-        {
-          title: "Settings",
-          url: "/settings",
-        },
-      ],
-    },
-    {
-      title: "User",
-      url: "#",
-      icon: Users,
-      items: [
-        {
-          title: "API Keys",
-          url: "/user/api-key",
-        },
-        {
-          title: "Profile",
-          url: "/user/profile",
-        },
-      ],
-    },
-    {
-      title: "Admin",
-      url: "#",
-      icon: Shield,
-      items: [
-        {
-          title: "Dashboard",
-          url: "/admin",
-        },
-        {
-          title: "API Keys",
-          url: "/admin/api-keys",
-        },
-        {
-          title: "Tool Groups",
-          url: "/admin/tool-groups",
-        },
-      ],
     },
   ],
   projects: [
     {
-      name: "Getting Started",
-      url: "/onboarding",
-      icon: Zap,
+      name: "Design Engineering",
+      url: "#",
+      icon: Frame,
     },
     {
-      name: "Documentation",
+      name: "Sales & Marketing",
       url: "#",
-      icon: BookOpen,
+      icon: PieChart,
     },
     {
-      name: "Support",
+      name: "Travel",
       url: "#",
-      icon: Bot,
+      icon: Map,
     },
   ],
 }
