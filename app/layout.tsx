@@ -8,7 +8,6 @@ import { ChatProvider } from "@/contexts/chat-context"
 import { DocumentProvider } from "@/contexts/document-context"
 import { Toaster } from "@/components/toaster"
 import { UserMenu } from "@/components/user-menu"
-import { SidebarProvider } from "@/components/ui/sidebar"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -30,18 +29,17 @@ export default function RootLayout({
           <SettingsProvider>
             <ChatProvider>
               <DocumentProvider>
-                <SidebarProvider defaultOpen={false}>
-                  <div className="flex h-screen w-full flex-col">
-                    {/* Header */}
-                    <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
-                      <h1 className="text-xl font-semibold">MCP Chat System</h1>
-                      <UserMenu />
-                    </header>
+                {/* ====== NO SIDEBAR ====== */}
+                <div className="flex h-screen w-full flex-col">
+                  {/* Header */}
+                  <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+                    <h1 className="text-xl font-semibold">MCP Chat System</h1>
+                    <UserMenu />
+                  </header>
 
-                    {/* Main Content */}
-                    <main className="flex-1 overflow-auto">{children}</main>
-                  </div>
-                </SidebarProvider>
+                  {/* Main Content */}
+                  <main className="flex-1 overflow-auto">{children}</main>
+                </div>
 
                 {/* Global Toasts */}
                 <Toaster />

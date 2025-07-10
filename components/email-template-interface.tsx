@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectItem, SelectTrigger, SelectValue, SearchableSelectContent } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -81,6 +81,8 @@ export function EmailTemplateInterface() {
   const [aiPrompt, setAiPrompt] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [templateSearchValue, setTemplateSearchValue] = useState("")
+  const [contentFormat, setContentFormat] = useState<"html" | "markdown">("html")
 
   // Email form state
   const [recipients, setRecipients] = useState("")
@@ -92,11 +94,25 @@ export function EmailTemplateInterface() {
 
   // Dialog states
   const [isVariableDialogOpen, setIsVariableDialogOpen] = useState(false)
+  const [isExpandDialogOpen, setIsExpandDialogOpen] = useState(false)
+  const [expandedJsonData, setExpandedJsonData] = useState("")
   const [selectedText, setSelectedText] = useState("")
   const [variableName, setVariableName] = useState("")
-  const [variableDescription, setVariableDescription] = useState("")
+  const [suggestedVariables, setSuggestedVariables] = useState<string[]>([])
+  const [isInExpandDialog, setIsInExpandDialog] = useState(false)
 
-  const { toast } = useToast()
+  // useToast can return `toast` as undefined if the ToastProvider is missing.
+  // `showToast` guarantees we never call an undefined function.
+  const { toast } = useToast() as { toast?: (opts: any) => void }
+
+  function showToast(opts: Parameters<NonNullable<typeof toast>>[0]) {
+    if (typeof toast === "function") {
+      toast(opts)
+    } else {
+      // Fallback - keep the app from crashing and surface the message in dev tools
+      console.warn("Toast provider missing:", opts)
+    }
+  }
 
   const handleTemplateSelect = (templateId: string) => {
     const template = emailTemplates.find((t) => t.id === templateId)
@@ -115,11 +131,22 @@ export function EmailTemplateInterface() {
     const selection = window.getSelection()
     const selectedText = selection?.toString().trim()
 
-    // Check if all text is selected (prevent dialog for Ctrl+A or similar)
-    if (selectedText && selectedText.length > 0 && selectedText !== jsonData.trim()) {
+    if (selectedText && selectedText.length > 0) {
       setSelectedText(selectedText)
-      setIsVariableDialogOpen(true)
+
+      // Get template variables as suggestions
+      const templateVariables = selectedTemplate?.variables || []
+      setSuggestedVariables(templateVariables)
+
+      // Only open dialog if not in expand dialog context
+      if (!isInExpandDialog) {
+        setIsVariableDialogOpen(true)
+      }
     }
+  }
+
+  const handleVariableSuggestionSelect = (suggestion: string) => {
+    setVariableName(suggestion)
   }
 
   const handleSaveVariable = () => {
@@ -127,16 +154,15 @@ export function EmailTemplateInterface() {
       const newVariable: SavedVariable = {
         name: variableName,
         value: selectedText,
-        description: variableDescription,
       }
 
       setSavedVariables((prev) => [...prev, newVariable])
       setVariableName("")
-      setVariableDescription("")
       setSelectedText("")
+      setSuggestedVariables([])
       setIsVariableDialogOpen(false)
 
-      toast({
+      showToast({
         title: "Variable Saved",
         description: `Variable "${variableName}" has been saved successfully.`,
       })
@@ -145,11 +171,35 @@ export function EmailTemplateInterface() {
 
   const handleRemoveVariable = (index: number) => {
     setSavedVariables((prev) => prev.filter((_, i) => i !== index))
+    showToast({
+      title: "Variable Removed",
+      description: "Variable removed successfully.",
+    })
+  }
+
+  const handleOpenExpandDialog = () => {
+    setExpandedJsonData(jsonData)
+    setIsInExpandDialog(true)
+    setIsExpandDialogOpen(true)
+  }
+
+  const handleSaveExpandedData = () => {
+    setJsonData(expandedJsonData)
+    setIsInExpandDialog(false)
+    setIsExpandDialogOpen(false)
+    showToast({
+      title: "JSON Data Updated",
+      description: "Your JSON data has been updated successfully.",
+    })
+  }
+
+  const handleClearExpandedData = () => {
+    setExpandedJsonData("")
   }
 
   const handleGenerate = async () => {
     if (!selectedTemplate) {
-      toast({
+      showToast({
         title: "No Template Selected",
         description: "Please select a template first.",
         variant: "destructive",
@@ -191,12 +241,12 @@ export function EmailTemplateInterface() {
       setSubject(generatedSubject)
       setContent(generatedContent)
 
-      toast({
+      showToast({
         title: "Email Generated",
         description: "Your email has been generated successfully!",
       })
     } catch (error) {
-      toast({
+      showToast({
         title: "Generation Failed",
         description: "Failed to generate email. Please try again.",
         variant: "destructive",
@@ -208,7 +258,7 @@ export function EmailTemplateInterface() {
 
   const handleSendEmail = async () => {
     if (!recipients || !subject || !content) {
-      toast({
+      showToast({
         title: "Missing Information",
         description: "Please fill in recipients, subject, and content.",
         variant: "destructive",
@@ -222,7 +272,7 @@ export function EmailTemplateInterface() {
       // Simulate sending email
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      toast({
+      showToast({
         title: "Email Sent",
         description: "Your email has been sent successfully!",
       })
@@ -235,7 +285,7 @@ export function EmailTemplateInterface() {
       setContent("")
       setAttachments([])
     } catch (error) {
-      toast({
+      showToast({
         title: "Send Failed",
         description: "Failed to send email. Please try again.",
         variant: "destructive",
@@ -244,6 +294,16 @@ export function EmailTemplateInterface() {
       setIsSending(false)
     }
   }
+
+  const handleContentFormatChange = (format: "html" | "markdown") => {
+    setContentFormat(format)
+  }
+
+  const filteredTemplates = emailTemplates.filter(
+    (template) =>
+      template.name.toLowerCase().includes(templateSearchValue.toLowerCase()) ||
+      template.description.toLowerCase().includes(templateSearchValue.toLowerCase()),
+  )
 
   return (
     <div className="h-full w-full flex gap-6 p-6">
@@ -268,8 +328,8 @@ export function EmailTemplateInterface() {
                     <SelectTrigger>
                       <SelectValue placeholder="Select an email template" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {emailTemplates.map((template) => (
+                    <SearchableSelectContent searchable onSearch={setTemplateSearchValue}>
+                      {filteredTemplates.map((template) => (
                         <SelectItem key={template.id} value={template.id}>
                           <div className="flex flex-col">
                             <span className="font-medium">{template.name}</span>
@@ -277,7 +337,7 @@ export function EmailTemplateInterface() {
                           </div>
                         </SelectItem>
                       ))}
-                    </SelectContent>
+                    </SearchableSelectContent>
                   </Select>
                   {selectedTemplate && (
                     <div className="mt-2 p-3 bg-muted rounded-md">
@@ -299,29 +359,27 @@ export function EmailTemplateInterface() {
 
               {/* JSON Data Input */}
               <div className="space-y-3">
-                <h3 className="text-sm font-medium border-b pb-2 flex items-center gap-2">
-                  <Database className="h-4 w-4" />
-                  JSON Data
-                </h3>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="jsonData">Template Variables (JSON)</Label>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Database className="h-4 w-4" />
+                    JSON Data
+                  </h3>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setJsonData("")} className="h-7 px-2 text-xs">
+                      Clear
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setJsonData("")
-                        toast({
-                          title: "Data Cleared",
-                          description: "JSON data has been cleared successfully.",
-                        })
-                      }}
-                      className="h-7 px-2 text-xs"
+                      onClick={handleOpenExpandDialog}
+                      className="h-7 px-2 text-xs bg-transparent"
                     >
-                      <X className="h-3 w-3 mr-1" />
-                      Clear
+                      Expand
                     </Button>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="jsonData">Template Variables (JSON)</Label>
                   <Textarea
                     id="jsonData"
                     placeholder='{"user_name": "John Doe", "company_name": "Acme Corp"}'
@@ -488,6 +546,37 @@ export function EmailTemplateInterface() {
                       onChange={(e) => setContent(e.target.value)}
                       className="min-h-[200px]"
                     />
+                    <div className="flex items-center gap-4">
+                      <Label className="text-xs font-medium">Format:</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          id="format-html"
+                          name="contentFormat"
+                          value="html"
+                          checked={contentFormat === "html"}
+                          onChange={() => handleContentFormatChange("html")}
+                          className="h-3 w-3"
+                        />
+                        <Label htmlFor="format-html" className="text-xs cursor-pointer">
+                          HTML
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          id="format-markdown"
+                          name="contentFormat"
+                          value="markdown"
+                          checked={contentFormat === "markdown"}
+                          onChange={() => handleContentFormatChange("markdown")}
+                          className="h-3 w-3"
+                        />
+                        <Label htmlFor="format-markdown" className="text-xs cursor-pointer">
+                          Markdown
+                        </Label>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -562,6 +651,28 @@ export function EmailTemplateInterface() {
                 <code className="text-sm">{selectedText}</code>
               </div>
             </div>
+
+            {suggestedVariables.length > 0 && (
+              <div className="space-y-2">
+                <Label>Template Variables</Label>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedVariables.map((suggestion, index) => (
+                    <Badge
+                      key={index}
+                      variant={variableName === suggestion ? "default" : "secondary"}
+                      className="cursor-pointer hover:bg-primary/80 transition-colors"
+                      onClick={() => handleVariableSuggestionSelect(suggestion)}
+                    >
+                      {suggestion}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Click on a template variable to use it as the variable name.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="variableName">Variable Name *</Label>
               <Input
@@ -569,15 +680,6 @@ export function EmailTemplateInterface() {
                 placeholder="e.g., user_name, company_name"
                 value={variableName}
                 onChange={(e) => setVariableName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="variableDescription">Description (Optional)</Label>
-              <Input
-                id="variableDescription"
-                placeholder="Brief description of this variable"
-                value={variableDescription}
-                onChange={(e) => setVariableDescription(e.target.value)}
               />
             </div>
           </div>
@@ -588,6 +690,202 @@ export function EmailTemplateInterface() {
             <Button onClick={handleSaveVariable} disabled={!variableName}>
               <Save className="mr-2 h-4 w-4" />
               Save Variable
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expand JSON Data Dialog */}
+      <Dialog
+        open={isExpandDialogOpen}
+        onOpenChange={(open) => {
+          setIsExpandDialogOpen(open)
+          if (!open) {
+            setIsInExpandDialog(false)
+            setSelectedText("")
+            setVariableName("")
+            setSuggestedVariables([])
+          }
+        }}
+      >
+        <DialogContent className="max-w-6xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Edit JSON Data
+            </DialogTitle>
+            <DialogDescription>
+              Edit your JSON template variables in an expanded view. Select text to save as variables.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-4 flex-1 min-h-0">
+            {/* Left side - JSON Editor */}
+            <div className="flex flex-col space-y-4 flex-1 min-h-0">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="expandedJsonData">JSON Template Variables</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearExpandedData}
+                  className="h-7 px-2 text-xs bg-transparent"
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Clear All
+                </Button>
+              </div>
+              <ScrollArea className="flex-1 min-h-[400px] max-h-[500px]">
+                <Textarea
+                  id="expandedJsonData"
+                  placeholder='{\n  "user_name": "John Doe",\n  "company_name": "Acme Corp",\n  "email": "john@example.com"\n}'
+                  value={expandedJsonData}
+                  onChange={(e) => setExpandedJsonData(e.target.value)}
+                  onMouseUp={handleTextSelection}
+                  className="min-h-[400px] font-mono text-sm resize-none border-0 focus-visible:ring-0"
+                />
+              </ScrollArea>
+              <div className="text-xs text-muted-foreground">
+                <p>• Use valid JSON format with double quotes around keys and string values</p>
+                <p>• Variables will be available as {`{{variable_name}}`} in your templates</p>
+                <p>• Select text to save as a variable in the panel on the right</p>
+              </div>
+            </div>
+
+            {/* Right side - Variable Management */}
+            <div className="w-80 flex flex-col space-y-4 border-l pl-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Variable Assignment</Label>
+                {selectedText && (
+                  <Badge variant="secondary" className="text-xs">
+                    Text Selected
+                  </Badge>
+                )}
+              </div>
+
+              {selectedText ? (
+                <div className="space-y-3 p-3 bg-muted/50 rounded-md">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Selected Text</Label>
+                    <div className="p-2 bg-background rounded border text-xs font-mono max-h-20 overflow-y-auto">
+                      {selectedText}
+                    </div>
+                  </div>
+
+                  {suggestedVariables.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-xs">Suggested Variables</Label>
+                      <div className="flex flex-wrap gap-1">
+                        {suggestedVariables.map((suggestion, index) => (
+                          <Badge
+                            key={index}
+                            variant={variableName === suggestion ? "default" : "secondary"}
+                            className="cursor-pointer hover:bg-primary/80 transition-colors text-xs"
+                            onClick={() => handleVariableSuggestionSelect(suggestion)}
+                          >
+                            {suggestion}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="expandVariableName" className="text-xs">
+                      Variable Name
+                    </Label>
+                    <Input
+                      id="expandVariableName"
+                      placeholder="e.g., user_name"
+                      value={variableName}
+                      onChange={(e) => setVariableName(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveVariable}
+                      disabled={!variableName}
+                      className="flex-1 h-7 text-xs"
+                    >
+                      <Save className="mr-1 h-3 w-3" />
+                      Save
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedText("")
+                        setVariableName("")
+                        setSuggestedVariables([])
+                      }}
+                      className="h-7 px-2"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-xs">Select text in the JSON editor to save as a variable</p>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Saved Variables Display */}
+              <div className="space-y-3 flex-1">
+                <Label className="text-sm font-medium">Saved Variables ({savedVariables.length})</Label>
+                <ScrollArea className="flex-1 max-h-60">
+                  {savedVariables.length > 0 ? (
+                    <div className="space-y-2">
+                      {savedVariables.map((variable, index) => (
+                        <div key={index} className="flex items-start justify-between p-2 bg-muted/30 rounded-md">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                {variable.name}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1 truncate" title={variable.value}>
+                              {variable.value}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveVariable(index)}
+                            className="h-6 w-6 p-0 shrink-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-4">No variables saved yet</p>
+                  )}
+                </ScrollArea>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsExpandDialogOpen(false)
+                setIsInExpandDialog(false)
+                setSelectedText("")
+                setVariableName("")
+                setSuggestedVariables([])
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveExpandedData}>
+              <Save className="mr-2 h-4 w-4" />
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

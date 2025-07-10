@@ -17,8 +17,9 @@ const SelectTrigger = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & {
     isMultiSelect?: boolean
     selectedValues?: string[]
+    searchable?: boolean
   }
->(({ className, children, isMultiSelect, selectedValues, ...props }, ref) => (
+>(({ className, children, isMultiSelect, selectedValues, searchable, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
@@ -109,6 +110,69 @@ const SelectContent = React.forwardRef<
 ))
 SelectContent.displayName = SelectPrimitive.Content.displayName
 
+const SearchableSelectContent = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content> & {
+    searchable?: boolean
+    onSearch?: (value: string) => void
+  }
+>(({ className, children, position = "popper", searchable, onSearch, ...props }, ref) => {
+  const [searchValue, setSearchValue] = React.useState("")
+  const searchInputRef = React.useRef<HTMLInputElement>(null)
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchValue(value)
+    onSearch?.(value)
+  }
+
+  return (
+    <SelectPrimitive.Portal>
+      <SelectPrimitive.Content
+        ref={ref}
+        className={cn(
+          "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+          position === "popper" &&
+            "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+          className,
+        )}
+        position={position}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault() // stop Radix from focusing a possibly-null element
+          searchInputRef.current?.focus() // move focus to our search input if it exists
+        }}
+        {...props}
+      >
+        <SelectScrollUpButton />
+        {searchable && (
+          <div className="p-2 border-b">
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search templates..."
+              value={searchValue}
+              onChange={handleSearchChange}
+              className="w-full px-3 py-2 text-sm text-foreground bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+        <SelectPrimitive.Viewport
+          className={cn(
+            "p-1",
+            position === "popper" &&
+              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]",
+          )}
+        >
+          {children}
+        </SelectPrimitive.Viewport>
+        <SelectScrollDownButton />
+      </SelectPrimitive.Content>
+    </SelectPrimitive.Portal>
+  )
+})
+SearchableSelectContent.displayName = "SearchableSelectContent"
+
 const SelectLabel = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Label>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
@@ -154,6 +218,7 @@ export {
   SelectValue,
   SelectTrigger,
   SelectContent,
+  SearchableSelectContent,
   SelectLabel,
   SelectItem,
   SelectSeparator,
