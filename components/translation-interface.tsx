@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
-import { Copy, RotateCcw, ArrowLeftRight, Languages, Loader2 } from "lucide-react"
+import { Copy, RotateCcw, RefreshCw, Languages } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 
 export function TranslationInterface() {
@@ -19,8 +19,8 @@ export function TranslationInterface() {
   const handleTranslate = async () => {
     if (!inputText.trim()) {
       toast({
-        title: "Input Required",
-        description: "Please enter text to translate.",
+        title: "Error",
+        description: "Please enter text to translate",
         variant: "destructive",
       })
       return
@@ -47,13 +47,13 @@ export function TranslationInterface() {
       setOutputText(data.translation)
 
       toast({
-        title: "Translation Complete",
-        description: "Text has been successfully translated.",
+        title: "Success",
+        description: "Translation completed successfully",
       })
     } catch (error) {
       toast({
-        title: "Translation Error",
-        description: "Failed to translate text. Please try again.",
+        title: "Error",
+        description: "Failed to translate text",
         variant: "destructive",
       })
     } finally {
@@ -61,17 +61,17 @@ export function TranslationInterface() {
     }
   }
 
-  const handleCopy = async (text: string, type: "input" | "output") => {
+  const handleCopy = async (text: string, type: string) => {
     try {
       await navigator.clipboard.writeText(text)
       toast({
         title: "Copied",
-        description: `${type === "input" ? "Input" : "Output"} text copied to clipboard.`,
+        description: `${type} copied to clipboard`,
       })
     } catch (error) {
       toast({
-        title: "Copy Failed",
-        description: "Failed to copy text to clipboard.",
+        title: "Error",
+        description: "Failed to copy to clipboard",
         variant: "destructive",
       })
     }
@@ -83,7 +83,7 @@ export function TranslationInterface() {
     setOutputText(temp)
     toast({
       title: "Swapped",
-      description: "Input and output text have been swapped.",
+      description: "Input and output text swapped",
     })
   }
 
@@ -92,96 +92,111 @@ export function TranslationInterface() {
     setOutputText("")
     toast({
       title: "Reset",
-      description: "All text has been cleared.",
+      description: "All text cleared",
     })
   }
 
   return (
-    <div className="flex flex-col h-full p-6 space-y-6">
+    <div className="container mx-auto p-6 max-w-7xl">
       {/* Header */}
-      <div className="flex items-center space-x-2">
-        <Languages className="h-6 w-6" />
-        <h1 className="text-2xl font-bold">AI Translation</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <Languages className="h-8 w-8 text-primary" />
+        <h1 className="text-3xl font-bold">AI Translation</h1>
       </div>
 
       {/* Prompt Section */}
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle>Translation Prompt</CardTitle>
         </CardHeader>
         <CardContent>
           <Textarea
-            placeholder="Enter your translation instructions here..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            className="min-h-[80px]"
+            placeholder="Enter translation instructions and language direction..."
+            className="min-h-[100px]"
           />
         </CardContent>
       </Card>
 
       {/* Translation Section */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Input Section */}
-        <Card className="flex flex-col">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Input */}
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Input Text</CardTitle>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">{inputText.length} characters</span>
-              <Button variant="ghost" size="sm" onClick={() => handleCopy(inputText, "input")} disabled={!inputText}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCopy(inputText, "Input text")}
+                disabled={!inputText}
+              >
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="flex-1">
+          <CardContent>
             <Textarea
-              placeholder="Enter text to translate..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              className="h-full min-h-[300px] resize-none"
+              placeholder="Enter text to translate..."
+              className="min-h-[300px] resize-none"
             />
           </CardContent>
         </Card>
 
-        {/* Output Section */}
-        <Card className="flex flex-col">
+        {/* Output */}
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Translation Result</CardTitle>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">{outputText.length} characters</span>
-              <Button variant="ghost" size="sm" onClick={() => handleCopy(outputText, "output")} disabled={!outputText}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCopy(outputText, "Translation result")}
+                disabled={!outputText}
+              >
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="flex-1">
+          <CardContent>
             <Textarea
-              placeholder="Translation will appear here..."
               value={outputText}
-              onChange={(e) => setOutputText(e.target.value)}
-              className="h-full min-h-[300px] resize-none"
+              readOnly
+              placeholder="Translation will appear here..."
+              className="min-h-[300px] resize-none bg-muted/50"
             />
           </CardContent>
         </Card>
       </div>
 
       {/* Action Buttons */}
-      <div className="flex justify-center space-x-4">
+      <div className="flex justify-center gap-4">
         <Button variant="outline" onClick={handleReset} disabled={!inputText && !outputText}>
           <RotateCcw className="h-4 w-4 mr-2" />
           Reset
         </Button>
-        <Button variant="outline" onClick={handleSwap} disabled={!inputText && !outputText}>
-          <ArrowLeftRight className="h-4 w-4 mr-2" />
+
+        <Button variant="outline" onClick={handleSwap} disabled={!inputText || !outputText}>
+          <RefreshCw className="h-4 w-4 mr-2" />
           Swap
         </Button>
+
         <Button onClick={handleTranslate} disabled={!inputText.trim() || isTranslating} className="min-w-[120px]">
           {isTranslating ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
               Translating...
             </>
           ) : (
-            "Translate"
+            <>
+              <Languages className="h-4 w-4 mr-2" />
+              Translate
+            </>
           )}
         </Button>
       </div>

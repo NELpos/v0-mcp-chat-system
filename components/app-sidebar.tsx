@@ -8,18 +8,21 @@ import {
   Command,
   Frame,
   GalleryVerticalEnd,
-  Map,
-  PieChart,
   Settings2,
-  SquareTerminal,
+  MessageSquare,
   Languages,
+  Users,
+  Shield,
+  Mail,
+  ChevronLeft,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
 import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail, useSidebar } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
 
 // This is sample data.
 const data = {
@@ -48,14 +51,19 @@ const data = {
   navMain: [
     {
       title: "Chat",
-      url: "/",
-      icon: Bot,
+      url: "#",
+      icon: MessageSquare,
       isActive: true,
-    },
-    {
-      title: "MCP Chat",
-      url: "/mcp",
-      icon: SquareTerminal,
+      items: [
+        {
+          title: "MCP Chat",
+          url: "/mcp",
+        },
+        {
+          title: "RAG Chat",
+          url: "/rag",
+        },
+      ],
     },
     {
       title: "Translation",
@@ -63,41 +71,86 @@ const data = {
       icon: Languages,
     },
     {
-      title: "RAG",
-      url: "/rag",
-      icon: BookOpen,
+      title: "Email Template",
+      url: "/template/email",
+      icon: Mail,
     },
     {
-      title: "Prompts",
-      url: "/prompts",
-      icon: Frame,
-    },
-    {
-      title: "Settings",
-      url: "/settings",
+      title: "Management",
+      url: "#",
       icon: Settings2,
+      items: [
+        {
+          title: "Prompts",
+          url: "/prompts",
+        },
+        {
+          title: "Resources",
+          url: "#",
+        },
+        {
+          title: "Settings",
+          url: "/settings",
+        },
+      ],
+    },
+    {
+      title: "User",
+      url: "#",
+      icon: Users,
+      items: [
+        {
+          title: "API Keys",
+          url: "/user/api-key",
+        },
+        {
+          title: "Profile",
+          url: "#",
+        },
+      ],
+    },
+    {
+      title: "Admin",
+      url: "#",
+      icon: Shield,
+      items: [
+        {
+          title: "Dashboard",
+          url: "/admin",
+        },
+        {
+          title: "API Keys",
+          url: "/admin/api-keys",
+        },
+        {
+          title: "Tool Groups",
+          url: "/admin/tool-groups",
+        },
+      ],
     },
   ],
   projects: [
     {
-      name: "Design Engineering",
-      url: "#",
+      name: "Getting Started",
+      url: "/onboarding",
       icon: Frame,
     },
     {
-      name: "Sales & Marketing",
+      name: "Documentation",
       url: "#",
-      icon: PieChart,
+      icon: BookOpen,
     },
     {
-      name: "Travel",
+      name: "Support",
       url: "#",
-      icon: Map,
+      icon: Bot,
     },
   ],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { toggleSidebar, state } = useSidebar()
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -110,7 +163,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         <NavUser user={data.user} />
       </SidebarFooter>
-      <SidebarRail />
+      <SidebarRail>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleSidebar}
+          className="absolute inset-y-0 right-0 w-4 flex items-center justify-center hover:bg-sidebar-accent transition-colors duration-200 group"
+          aria-label={state === "expanded" ? "Collapse sidebar" : "Expand sidebar"}
+        >
+          <ChevronLeft
+            className={`h-4 w-4 transition-transform duration-200 ${state === "collapsed" ? "rotate-180" : ""}`}
+          />
+        </Button>
+      </SidebarRail>
     </Sidebar>
   )
 }
