@@ -57,7 +57,7 @@
     "react-markdown": "latest",
     "react-resizable-panels": "^2.1.7",
     "react-syntax-highlighter": "latest",
-    "recharts": "2.15.0",
+    "recharts": "latest",
     "rehype-katex": "latest",
     "remark-gfm": "latest",
     "remark-math": "latest",
