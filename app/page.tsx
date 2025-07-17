@@ -1,12 +1,5 @@
-"use client"
-
 import { redirect } from "next/navigation"
-import { useEffect } from "react"
 
-export default function HomePage() {
-  useEffect(() => {
-    redirect("/workbook")
-  }, [])
-
-  return null
+export default function Home() {
+  redirect("/ticket-analysis")
 }

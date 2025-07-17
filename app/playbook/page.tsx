@@ -2,13 +2,13 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
 import {
   Dialog,
@@ -19,328 +19,306 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Separator } from "@/components/ui/separator"
 import {
+  ExternalLink,
+  Download,
   FileText,
-  Link,
-  Bot,
-  CheckCircle,
-  Circle,
   Clock,
-  Loader2,
-  GripVertical,
-  Trash2,
   Plus,
+  Trash2,
   Settings,
-  Wrench,
+  GripVertical,
+  Bot,
   Database,
   Shield,
   Search,
   Mail,
-  Terminal,
+  Scan,
+  RotateCcw,
+  Package,
+  BarChart3,
 } from "lucide-react"
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd"
+
+interface TodoTask {
+  id: string
+  title: string
+  description: string
+  priority: "High" | "Medium" | "Low"
+  category: "Detection" | "Containment" | "Eradication" | "Recovery" | "Documentation"
+  estimatedTime: string
+  completed: boolean
+  assignedTools: string[]
+}
 
 interface MCPTool {
   id: string
   name: string
   description: string
   category: "monitoring" | "control" | "planning" | "analysis" | "communication"
-  icon: string
   serverEndpoint: string
   parameters: string[]
+  icon: React.ReactNode
 }
 
-interface TodoItem {
-  id: string
-  task: string
-  description: string
-  priority: "high" | "medium" | "low"
-  estimatedTime: string
-  completed: boolean
-  category: string
-  mcpTools: string[]
-  order: number
-}
-
-interface PlaybookAnalysis {
-  title: string
-  summary: string
-  totalTasks: number
-  estimatedDuration: string
-  categories: string[]
-  todos: TodoItem[]
-}
-
-// Mock MCP Tools Data
 const mockMCPTools: MCPTool[] = [
   {
     id: "siem-query",
     name: "SIEM Query Tool",
     description: "Execute queries against SIEM database for log analysis",
     category: "monitoring",
-    icon: "Database",
     serverEndpoint: "mcp://siem-server/query",
     parameters: ["query", "timeRange", "logSource"],
+    icon: <Database className="h-4 w-4" />,
   },
   {
-    id: "network-isolate",
+    id: "network-isolation",
     name: "Network Isolation Tool",
     description: "Isolate compromised systems from network",
     category: "control",
-    icon: "Shield",
     serverEndpoint: "mcp://network-server/isolate",
-    parameters: ["hostId", "isolationType", "duration"],
+    parameters: ["targetIP", "isolationType", "duration"],
+    icon: <Shield className="h-4 w-4" />,
   },
   {
-    id: "forensic-collect",
+    id: "forensic-collection",
     name: "Forensic Collection Tool",
     description: "Collect forensic evidence from target systems",
     category: "analysis",
-    icon: "Search",
     serverEndpoint: "mcp://forensic-server/collect",
-    parameters: ["targetHost", "artifactTypes", "outputPath"],
+    parameters: ["targetSystem", "evidenceType", "preservationMethod"],
+    icon: <Search className="h-4 w-4" />,
   },
   {
-    id: "incident-notify",
+    id: "incident-notification",
     name: "Incident Notification Tool",
-    description: "Send notifications to stakeholders",
+    description: "Send notifications to stakeholders about incidents",
     category: "communication",
-    icon: "Mail",
-    serverEndpoint: "mcp://notify-server/send",
+    serverEndpoint: "mcp://notification-server/send",
     parameters: ["recipients", "severity", "message"],
+    icon: <Mail className="h-4 w-4" />,
   },
   {
-    id: "malware-scan",
+    id: "malware-scanner",
     name: "Malware Scanner",
-    description: "Scan systems for malware signatures",
+    description: "Scan systems for malware and suspicious files",
     category: "analysis",
-    icon: "Shield",
     serverEndpoint: "mcp://scanner-server/scan",
-    parameters: ["targetPath", "scanType", "quarantine"],
+    parameters: ["targetPath", "scanType", "quarantineAction"],
+    icon: <Scan className="h-4 w-4" />,
   },
   {
     id: "backup-restore",
     name: "Backup Restore Tool",
     description: "Restore systems from clean backups",
     category: "control",
-    icon: "Database",
     serverEndpoint: "mcp://backup-server/restore",
-    parameters: ["backupId", "targetSystem", "verifyIntegrity"],
+    parameters: ["backupId", "targetSystem", "restorePoint"],
+    icon: <RotateCcw className="h-4 w-4" />,
   },
   {
-    id: "patch-deploy",
+    id: "patch-deployment",
     name: "Patch Deployment Tool",
-    description: "Deploy security patches to systems",
+    description: "Deploy security patches to affected systems",
     category: "control",
-    icon: "Wrench",
     serverEndpoint: "mcp://patch-server/deploy",
-    parameters: ["patchId", "targetSystems", "scheduleTime"],
+    parameters: ["patchId", "targetSystems", "deploymentSchedule"],
+    icon: <Package className="h-4 w-4" />,
   },
   {
-    id: "log-analyzer",
+    id: "log-analysis",
     name: "Log Analysis Tool",
-    description: "Analyze logs for suspicious patterns",
+    description: "Analyze logs for patterns and anomalies",
     category: "analysis",
-    icon: "Terminal",
-    serverEndpoint: "mcp://analyzer-server/analyze",
-    parameters: ["logFiles", "patterns", "timeWindow"],
+    serverEndpoint: "mcp://analysis-server/analyze",
+    parameters: ["logFiles", "analysisType", "timeWindow"],
+    icon: <BarChart3 className="h-4 w-4" />,
   },
 ]
 
-const mockPlaybookAnalysis: PlaybookAnalysis = {
-  title: "Malware Incident Response Playbook",
-  summary:
-    "Comprehensive procedure for handling malware incidents including detection, containment, eradication, and recovery phases.",
-  totalTasks: 12,
-  estimatedDuration: "4-6 hours",
-  categories: ["Detection", "Containment", "Eradication", "Recovery", "Documentation"],
-  todos: [
+export default function PlaybookPage() {
+  const [wikiUrl, setWikiUrl] = useState(
+    "https://confluence.company.com/display/SEC/Malware-Incident-Response-Playbook",
+  )
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isAnalyzed, setIsAnalyzed] = useState(true)
+  const [showAddTaskDialog, setShowAddTaskDialog] = useState(false)
+  const [showToolSelectionDialog, setShowToolSelectionDialog] = useState(false)
+  const [selectedTaskId, setSelectedTaskId] = useState<string>("")
+  const [newTask, setNewTask] = useState({
+    title: "",
+    description: "",
+    priority: "Medium" as const,
+    category: "Detection" as const,
+    estimatedTime: "30",
+  })
+
+  const [todoTasks, setTodoTasks] = useState<TodoTask[]>([
     {
       id: "1",
-      task: "Initial Incident Triage",
-      description: "Assess the scope and severity of the malware incident",
-      priority: "high",
-      estimatedTime: "15 min",
-      completed: false,
+      title: "Initial Event Triage",
+      description: "Assess the severity and scope of the malware incident",
+      priority: "High",
       category: "Detection",
-      mcpTools: ["siem-query", "log-analyzer"],
-      order: 1,
+      estimatedTime: "15 minutes",
+      completed: true,
+      assignedTools: ["siem-query", "log-analysis"],
     },
     {
       id: "2",
-      task: "Isolate Affected Systems",
-      description: "Disconnect infected systems from network to prevent spread",
-      priority: "high",
-      estimatedTime: "10 min",
-      completed: false,
+      title: "Isolate Affected Systems",
+      description: "Immediately isolate compromised systems from the network",
+      priority: "High",
       category: "Containment",
-      mcpTools: ["network-isolate"],
-      order: 2,
+      estimatedTime: "30 minutes",
+      completed: true,
+      assignedTools: ["network-isolation"],
     },
     {
       id: "3",
-      task: "Collect Forensic Evidence",
-      description: "Gather logs, memory dumps, and disk images for analysis",
-      priority: "medium",
-      estimatedTime: "45 min",
-      completed: false,
+      title: "Collect Forensic Evidence",
+      description: "Gather digital evidence from affected systems for analysis",
+      priority: "High",
       category: "Detection",
-      mcpTools: ["forensic-collect", "siem-query"],
-      order: 3,
+      estimatedTime: "45 minutes",
+      completed: false,
+      assignedTools: ["forensic-collection", "malware-scanner"],
     },
     {
       id: "4",
-      task: "Identify Malware Type",
-      description: "Analyze samples to determine malware family and capabilities",
-      priority: "medium",
-      estimatedTime: "30 min",
+      title: "Notify Stakeholders",
+      description: "Inform management and relevant teams about the incident",
+      priority: "Medium",
+      category: "Documentation",
+      estimatedTime: "20 minutes",
       completed: false,
-      category: "Detection",
-      mcpTools: ["malware-scan", "log-analyzer"],
-      order: 4,
+      assignedTools: ["incident-notification"],
     },
     {
       id: "5",
-      task: "Check for Lateral Movement",
-      description: "Scan network for signs of malware propagation",
-      priority: "high",
-      estimatedTime: "20 min",
-      completed: false,
+      title: "Malware Analysis",
+      description: "Analyze the malware sample to understand its behavior",
+      priority: "High",
       category: "Detection",
-      mcpTools: ["siem-query", "network-isolate"],
-      order: 5,
+      estimatedTime: "90 minutes",
+      completed: false,
+      assignedTools: ["malware-scanner", "log-analysis"],
     },
     {
       id: "6",
-      task: "Remove Malware Artifacts",
-      description: "Clean infected systems and remove malicious files",
-      priority: "medium",
-      estimatedTime: "60 min",
+      title: "System Restoration",
+      description: "Restore affected systems from clean backups",
+      priority: "Medium",
+      category: "Recovery",
+      estimatedTime: "60 minutes",
       completed: false,
-      category: "Eradication",
-      mcpTools: ["malware-scan"],
-      order: 6,
+      assignedTools: ["backup-restore"],
     },
-  ],
-}
+    {
+      id: "7",
+      title: "Apply Security Patches",
+      description: "Deploy necessary security patches to prevent reinfection",
+      priority: "Medium",
+      category: "Eradication",
+      estimatedTime: "45 minutes",
+      completed: false,
+      assignedTools: ["patch-deployment"],
+    },
+    {
+      id: "8",
+      title: "Monitor for Persistence",
+      description: "Monitor systems for signs of malware persistence",
+      priority: "Medium",
+      category: "Recovery",
+      estimatedTime: "30 minutes",
+      completed: false,
+      assignedTools: ["siem-query", "log-analysis"],
+    },
+  ])
 
-export default function PlaybookPage() {
-  const [wikiUrl, setWikiUrl] = useState("")
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [analysis, setAnalysis] = useState<PlaybookAnalysis | null>(null)
-  const [todos, setTodos] = useState<TodoItem[]>([])
-  const [draggedItem, setDraggedItem] = useState<string | null>(null)
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [showToolDialog, setShowToolDialog] = useState(false)
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
-  const [newTask, setNewTask] = useState({
-    task: "",
-    description: "",
-    priority: "medium" as "high" | "medium" | "low",
-    estimatedTime: "",
-    category: "",
-  })
+  const completedTasks = todoTasks.filter((task) => task.completed).length
+  const totalTasks = todoTasks.length
+  const progressPercentage = (completedTasks / totalTasks) * 100
 
-  const dragCounter = useRef(0)
-
-  const handleAnalyzePlaybook = async () => {
-    if (!wikiUrl.trim()) return
-
+  const handleAnalyze = async () => {
     setIsAnalyzing(true)
-    setTimeout(() => {
-      setAnalysis(mockPlaybookAnalysis)
-      setTodos(mockPlaybookAnalysis.todos.sort((a, b) => a.order - b.order))
-      setIsAnalyzing(false)
-    }, 3000)
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    setIsAnalyzing(false)
+    setIsAnalyzed(true)
   }
 
-  const toggleTodoComplete = (todoId: string) => {
-    setTodos(todos.map((todo) => (todo.id === todoId ? { ...todo, completed: !todo.completed } : todo)))
+  const handleTaskToggle = (taskId: string) => {
+    setTodoTasks((tasks) => tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task)))
   }
 
-  const deleteTodo = (todoId: string) => {
-    setTodos(todos.filter((todo) => todo.id !== todoId))
+  const handleDeleteTask = (taskId: string) => {
+    setTodoTasks((tasks) => tasks.filter((task) => task.id !== taskId))
   }
 
-  const addNewTask = () => {
-    if (!newTask.task.trim()) return
-
-    const newTodo: TodoItem = {
+  const handleAddTask = () => {
+    const task: TodoTask = {
       id: Date.now().toString(),
-      task: newTask.task,
+      title: newTask.title,
       description: newTask.description,
       priority: newTask.priority,
-      estimatedTime: newTask.estimatedTime,
-      completed: false,
       category: newTask.category,
-      mcpTools: [],
-      order: todos.length + 1,
+      estimatedTime: `${newTask.estimatedTime} minutes`,
+      completed: false,
+      assignedTools: [],
     }
-
-    setTodos([...todos, newTodo])
+    setTodoTasks((tasks) => [...tasks, task])
     setNewTask({
-      task: "",
+      title: "",
       description: "",
-      priority: "medium",
-      estimatedTime: "",
-      category: "",
+      priority: "Medium",
+      category: "Detection",
+      estimatedTime: "30",
     })
-    setShowAddDialog(false)
+    setShowAddTaskDialog(false)
   }
 
-  const handleDragStart = (e: React.DragEvent, todoId: string) => {
-    setDraggedItem(todoId)
-    e.dataTransfer.effectAllowed = "move"
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!result.destination) return
+
+      const items = Array.from(todoTasks)
+      const [reorderedItem] = items.splice(result.source.index, 1)
+      items.splice(result.destination.index, 0, reorderedItem)
+
+      setTodoTasks(items)
+    },
+    [todoTasks],
+  )
+
+  const handleToolSelection = (taskId: string, toolId: string) => {
+    setTodoTasks((tasks) =>
+      tasks.map((task) => {
+        if (task.id === taskId) {
+          const assignedTools = task.assignedTools.includes(toolId)
+            ? task.assignedTools.filter((id) => id !== toolId)
+            : [...task.assignedTools, toolId]
+          return { ...task, assignedTools }
+        }
+        return task
+      }),
+    )
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
-  }
-
-  const handleDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault()
-
-    if (!draggedItem || draggedItem === targetId) return
-
-    const draggedIndex = todos.findIndex((todo) => todo.id === draggedItem)
-    const targetIndex = todos.findIndex((todo) => todo.id === targetId)
-
-    if (draggedIndex === -1 || targetIndex === -1) return
-
-    const newTodos = [...todos]
-    const [draggedTodo] = newTodos.splice(draggedIndex, 1)
-    newTodos.splice(targetIndex, 0, draggedTodo)
-
-    // Update order numbers
-    const updatedTodos = newTodos.map((todo, index) => ({
-      ...todo,
-      order: index + 1,
-    }))
-
-    setTodos(updatedTodos)
-    setDraggedItem(null)
-  }
-
-  const updateTaskMCPTools = (taskId: string, toolIds: string[]) => {
-    setTodos(todos.map((todo) => (todo.id === taskId ? { ...todo, mcpTools: toolIds } : todo)))
-  }
-
-  const openToolDialog = (taskId: string) => {
+  const openToolSelection = (taskId: string) => {
     setSelectedTaskId(taskId)
-    setShowToolDialog(true)
+    setShowToolSelectionDialog(true)
   }
-
-  const completedTasks = todos.filter((todo) => todo.completed).length
-  const progressPercentage = todos.length > 0 ? (completedTasks / todos.length) * 100 : 0
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "high":
+      case "High":
         return "bg-red-100 text-red-800 border-red-200"
-      case "medium":
+      case "Medium":
         return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "low":
+      case "Low":
         return "bg-green-100 text-green-800 border-green-200"
       default:
         return "bg-gray-100 text-gray-800 border-gray-200"
@@ -348,418 +326,404 @@ export default function PlaybookPage() {
   }
 
   const getCategoryColor = (category: string) => {
-    const colors = {
-      Detection: "bg-blue-100 text-blue-800",
-      Containment: "bg-orange-100 text-orange-800",
-      Eradication: "bg-red-100 text-red-800",
-      Recovery: "bg-green-100 text-green-800",
-      Documentation: "bg-purple-100 text-purple-800",
+    switch (category) {
+      case "Detection":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      case "Containment":
+        return "bg-orange-100 text-orange-800 border-orange-200"
+      case "Eradication":
+        return "bg-red-100 text-red-800 border-red-200"
+      case "Recovery":
+        return "bg-green-100 text-green-800 border-green-200"
+      case "Documentation":
+        return "bg-purple-100 text-purple-800 border-purple-200"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200"
     }
-    return colors[category as keyof typeof colors] || "bg-gray-100 text-gray-800"
   }
 
-  const getMCPToolIcon = (iconName: string) => {
-    const icons = {
-      Database: Database,
-      Shield: Shield,
-      Search: Search,
-      Mail: Mail,
-      Wrench: Wrench,
-      Terminal: Terminal,
+  const getToolCategoryColor = (category: string) => {
+    switch (category) {
+      case "monitoring":
+        return "bg-blue-100 text-blue-800"
+      case "control":
+        return "bg-red-100 text-red-800"
+      case "planning":
+        return "bg-green-100 text-green-800"
+      case "analysis":
+        return "bg-purple-100 text-purple-800"
+      case "communication":
+        return "bg-yellow-100 text-yellow-800"
+      default:
+        return "bg-gray-100 text-gray-800"
     }
-    return icons[iconName as keyof typeof icons] || Settings
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Interactive Playbook Analyzer</h1>
-            <p className="text-muted-foreground">Extract and manage actionable TODO lists with MCP tool integration</p>
-          </div>
-        </div>
+    <div className="container mx-auto p-6 max-w-7xl">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Playbook Analyzer</h1>
+        <p className="text-muted-foreground">
+          Analyze Confluence wiki playbooks and generate interactive TODO lists with MCP tool integration
+        </p>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Panel - Wiki Input */}
-          <div className="lg:col-span-1 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Link className="w-5 h-5" />
-                  Wiki Document Input
-                </CardTitle>
-                <CardDescription>Enter the Confluence wiki URL for playbook analysis</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="wikiUrl">Confluence Wiki URL</Label>
-                  <Input
-                    id="wikiUrl"
-                    placeholder="https://company.atlassian.net/wiki/spaces/..."
-                    value={wikiUrl}
-                    onChange={(e) => setWikiUrl(e.target.value)}
-                    className="mt-1"
-                  />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Panel - Wiki Input */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Wiki Document Analysis
+            </CardTitle>
+            <CardDescription>Enter a Confluence wiki URL to analyze and extract TODO tasks</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="wiki-url">Confluence Wiki URL</Label>
+              <Input
+                id="wiki-url"
+                value={wikiUrl}
+                onChange={(e) => setWikiUrl(e.target.value)}
+                placeholder="https://confluence.company.com/display/..."
+              />
+            </div>
+
+            <Button onClick={handleAnalyze} disabled={isAnalyzing || !wikiUrl} className="w-full">
+              {isAnalyzing ? (
+                <>
+                  <Bot className="mr-2 h-4 w-4 animate-spin" />
+                  Analyzing with AI...
+                </>
+              ) : (
+                <>
+                  <Bot className="mr-2 h-4 w-4" />
+                  Analyze Playbook
+                </>
+              )}
+            </Button>
+
+            {isAnalyzed && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">{totalTasks}</div>
+                    <div className="text-sm text-muted-foreground">Total Tasks</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">4.5h</div>
+                    <div className="text-sm text-muted-foreground">Est. Time</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-purple-600">5</div>
+                    <div className="text-sm text-muted-foreground">Categories</div>
+                  </div>
                 </div>
 
-                <Button onClick={handleAnalyzePlaybook} disabled={!wikiUrl.trim() || isAnalyzing} className="w-full">
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Bot className="w-4 h-4 mr-2" />
-                      Analyze with AI
-                    </>
-                  )}
-                </Button>
+                <Separator />
 
-                {isAnalyzing && (
-                  <Alert>
-                    <Bot className="h-4 w-4" />
-                    <AlertDescription>
-                      AI is analyzing the playbook document and extracting actionable tasks...
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {analysis && (
-                  <div className="space-y-3 pt-4 border-t">
-                    <h3 className="font-semibold">Analysis Summary</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Tasks:</span>
-                        <span className="font-medium">{todos.length}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Est. Duration:</span>
-                        <span className="font-medium">{analysis.estimatedDuration}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Categories:</span>
-                        <span className="font-medium">{analysis.categories.length}</span>
-                      </div>
-                    </div>
+                <div className="space-y-2">
+                  <h4 className="font-medium">Quick Actions</h4>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm">
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Open Wiki
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Download className="mr-2 h-4 w-4" />
+                      Export TODO
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <FileText className="mr-2 h-4 w-4" />
+                      Generate Report
+                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* MCP Tools Overview */}
-            {analysis && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Available MCP Tools</CardTitle>
-                  <CardDescription>Tools available for task automation</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {mockMCPTools.slice(0, 4).map((tool) => {
-                      const IconComponent = getMCPToolIcon(tool.icon)
-                      return (
-                        <div key={tool.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                          <IconComponent className="w-4 h-4" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium truncate">{tool.name}</div>
-                            <div className="text-xs text-muted-foreground truncate">{tool.description}</div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                    <div className="text-xs text-muted-foreground text-center pt-2">
-                      +{mockMCPTools.length - 4} more tools available
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Right Panel - Analysis Results */}
-          <div className="lg:col-span-2 space-y-4">
-            {analysis ? (
-              <>
-                {/* Playbook Overview */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      {analysis.title}
-                    </CardTitle>
-                    <CardDescription>{analysis.summary}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Progress</span>
-                        <span className="text-sm text-muted-foreground">
-                          {completedTasks} of {todos.length} tasks completed
-                        </span>
-                      </div>
-                      <Progress value={progressPercentage} className="h-2" />
+        {/* Right Panel - Analysis Results */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Playbook Overview</CardTitle>
+            <CardDescription>Malware Incident Response Playbook - Security Operations</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Progress</span>
+                <span>
+                  {completedTasks}/{totalTasks} completed
+                </span>
+              </div>
+              <Progress value={progressPercentage} className="h-2" />
+            </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        {analysis.categories.map((category) => (
-                          <Badge key={category} className={getCategoryColor(category)}>
-                            {category}
-                          </Badge>
-                        ))}
-                      </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+                Detection
+              </Badge>
+              <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
+                Containment
+              </Badge>
+              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+                Eradication
+              </Badge>
+              <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+                Recovery
+              </Badge>
+              <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
+                Documentation
+              </Badge>
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              <p>
+                This playbook provides step-by-step procedures for responding to malware incidents. Each task has been
+                analyzed and categorized with estimated completion times and assigned MCP tools for automation.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* TODO List */}
+      {isAnalyzed && (
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>AI-Generated TODO List</CardTitle>
+                <CardDescription>
+                  Interactive task list with MCP tool integration and drag-and-drop reordering
+                </CardDescription>
+              </div>
+              <Dialog open={showAddTaskDialog} onOpenChange={setShowAddTaskDialog}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Task
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Task</DialogTitle>
+                    <DialogDescription>Create a new task for the playbook</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="task-title">Title</Label>
+                      <Input
+                        id="task-title"
+                        value={newTask.title}
+                        onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                        placeholder="Enter task title"
+                      />
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* Interactive TODO List */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-5 h-5" />
-                        Interactive TODO List
-                      </div>
-                      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-                        <DialogTrigger asChild>
-                          <Button size="sm">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Task
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Add New Task</DialogTitle>
-                            <DialogDescription>Create a new task for the playbook</DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div>
-                              <Label htmlFor="taskName">Task Name</Label>
-                              <Input
-                                id="taskName"
-                                value={newTask.task}
-                                onChange={(e) => setNewTask({ ...newTask, task: e.target.value })}
-                                placeholder="Enter task name"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="taskDescription">Description</Label>
-                              <Textarea
-                                id="taskDescription"
-                                value={newTask.description}
-                                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                                placeholder="Enter task description"
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label>Priority</Label>
-                                <Select
-                                  value={newTask.priority}
-                                  onValueChange={(value: "high" | "medium" | "low") =>
-                                    setNewTask({ ...newTask, priority: value })
-                                  }
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="high">High</SelectItem>
-                                    <SelectItem value="medium">Medium</SelectItem>
-                                    <SelectItem value="low">Low</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div>
-                                <Label htmlFor="estimatedTime">Estimated Time</Label>
-                                <Input
-                                  id="estimatedTime"
-                                  value={newTask.estimatedTime}
-                                  onChange={(e) => setNewTask({ ...newTask, estimatedTime: e.target.value })}
-                                  placeholder="e.g., 30 min"
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <Label htmlFor="category">Category</Label>
-                              <Input
-                                id="category"
-                                value={newTask.category}
-                                onChange={(e) => setNewTask({ ...newTask, category: e.target.value })}
-                                placeholder="e.g., Detection, Containment"
-                              />
-                            </div>
-                            <Button onClick={addNewTask} className="w-full">
-                              Add Task
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </CardTitle>
-                    <CardDescription>Drag and drop to reorder, assign MCP tools for automation</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {todos.map((todo) => (
-                        <div
-                          key={todo.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, todo.id)}
-                          onDragOver={handleDragOver}
-                          onDrop={(e) => handleDrop(e, todo.id)}
-                          className={`p-4 rounded-lg border transition-all cursor-move ${
-                            todo.completed
-                              ? "bg-green-50 border-green-200 opacity-75"
-                              : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
-                          } ${draggedItem === todo.id ? "opacity-50" : ""}`}
+                    <div className="space-y-2">
+                      <Label htmlFor="task-description">Description</Label>
+                      <Textarea
+                        id="task-description"
+                        value={newTask.description}
+                        onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                        placeholder="Enter task description"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Priority</Label>
+                        <Select
+                          value={newTask.priority}
+                          onValueChange={(value: any) => setNewTask({ ...newTask, priority: value })}
                         >
-                          <div className="flex items-start gap-3">
-                            <GripVertical className="w-5 h-5 text-gray-400 mt-1 cursor-grab" />
-
-                            <button onClick={() => toggleTodoComplete(todo.id)} className="mt-1">
-                              {todo.completed ? (
-                                <CheckCircle className="w-5 h-5 text-green-600" />
-                              ) : (
-                                <Circle className="w-5 h-5 text-gray-400 hover:text-gray-600" />
-                              )}
-                            </button>
-
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <h4 className={`font-medium ${todo.completed ? "line-through text-gray-500" : ""}`}>
-                                  {todo.task}
-                                </h4>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => openToolDialog(todo.id)}
-                                    className="h-8 px-2"
-                                  >
-                                    <Settings className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => deleteTodo(todo.id)}
-                                    className="h-8 px-2 text-red-600 hover:text-red-700"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-
-                              <p className={`text-sm text-muted-foreground ${todo.completed ? "line-through" : ""}`}>
-                                {todo.description}
-                              </p>
-
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Badge className={getPriorityColor(todo.priority)}>{todo.priority}</Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  <Clock className="w-3 h-3 mr-1" />
-                                  {todo.estimatedTime}
-                                </Badge>
-                                <Badge className={getCategoryColor(todo.category)} variant="outline">
-                                  {todo.category}
-                                </Badge>
-                              </div>
-
-                              {/* MCP Tools Display */}
-                              {todo.mcpTools.length > 0 && (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-xs text-muted-foreground">MCP Tools:</span>
-                                  {todo.mcpTools.map((toolId) => {
-                                    const tool = mockMCPTools.find((t) => t.id === toolId)
-                                    if (!tool) return null
-                                    const IconComponent = getMCPToolIcon(tool.icon)
-                                    return (
-                                      <Badge key={toolId} variant="secondary" className="text-xs">
-                                        <IconComponent className="w-3 h-3 mr-1" />
-                                        {tool.name}
-                                      </Badge>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="High">High</SelectItem>
+                            <SelectItem value="Medium">Medium</SelectItem>
+                            <SelectItem value="Low">Low</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Category</Label>
+                        <Select
+                          value={newTask.category}
+                          onValueChange={(value: any) => setNewTask({ ...newTask, category: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Detection">Detection</SelectItem>
+                            <SelectItem value="Containment">Containment</SelectItem>
+                            <SelectItem value="Eradication">Eradication</SelectItem>
+                            <SelectItem value="Recovery">Recovery</SelectItem>
+                            <SelectItem value="Documentation">Documentation</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="space-y-2">
+                      <Label htmlFor="estimated-time">Estimated Time (minutes)</Label>
+                      <Input
+                        id="estimated-time"
+                        type="number"
+                        value={newTask.estimatedTime}
+                        onChange={(e) => setNewTask({ ...newTask, estimatedTime: e.target.value })}
+                        placeholder="30"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowAddTaskDialog(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleAddTask} disabled={!newTask.title || !newTask.description}>
+                        Add Task
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="todo-list">
+                {(provided) => (
+                  <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
+                    {todoTasks.map((task, index) => (
+                      <Draggable key={task.id} draggableId={task.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={`border rounded-lg p-4 bg-white transition-all ${
+                              snapshot.isDragging ? "shadow-lg opacity-75" : "hover:shadow-md"
+                            } ${task.completed ? "opacity-60" : ""}`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div {...provided.dragHandleProps} className="mt-1 cursor-grab active:cursor-grabbing">
+                                <GripVertical className="h-4 w-4 text-gray-400" />
+                              </div>
 
-                {/* MCP Tool Assignment Dialog */}
-                <Dialog open={showToolDialog} onOpenChange={setShowToolDialog}>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>Assign MCP Tools</DialogTitle>
-                      <DialogDescription>Select MCP tools to automate this task execution</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-                        {mockMCPTools.map((tool) => {
-                          const IconComponent = getMCPToolIcon(tool.icon)
-                          const selectedTask = todos.find((t) => t.id === selectedTaskId)
-                          const isSelected = selectedTask?.mcpTools.includes(tool.id) || false
+                              <Checkbox
+                                checked={task.completed}
+                                onCheckedChange={() => handleTaskToggle(task.id)}
+                                className="mt-1"
+                              />
 
-                          return (
-                            <div
-                              key={tool.id}
-                              className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                                isSelected ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
-                              }`}
-                              onClick={() => {
-                                if (!selectedTaskId) return
-                                const currentTools = selectedTask?.mcpTools || []
-                                const newTools = isSelected
-                                  ? currentTools.filter((id) => id !== tool.id)
-                                  : [...currentTools, tool.id]
-                                updateTaskMCPTools(selectedTaskId, newTools)
-                              }}
-                            >
-                              <div className="flex items-start gap-3">
-                                <IconComponent className="w-5 h-5 mt-1" />
-                                <div className="flex-1">
-                                  <h4 className="font-medium text-sm">{tool.name}</h4>
-                                  <p className="text-xs text-muted-foreground mb-2">{tool.description}</p>
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-start justify-between">
+                                  <h4 className={`font-medium ${task.completed ? "line-through text-gray-500" : ""}`}>
+                                    {task.title}
+                                  </h4>
                                   <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="text-xs">
-                                      {tool.category}
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {tool.parameters.length} params
-                                    </span>
+                                    <Button variant="ghost" size="sm" onClick={() => openToolSelection(task.id)}>
+                                      <Settings className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm" onClick={() => handleDeleteTask(task.id)}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
                                   </div>
                                 </div>
+
+                                <p className={`text-sm text-muted-foreground ${task.completed ? "line-through" : ""}`}>
+                                  {task.description}
+                                </p>
+
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge variant="outline" className={getPriorityColor(task.priority)}>
+                                    {task.priority}
+                                  </Badge>
+                                  <Badge variant="outline" className={getCategoryColor(task.category)}>
+                                    {task.category}
+                                  </Badge>
+                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                    <Clock className="h-3 w-3" />
+                                    {task.estimatedTime}
+                                  </div>
+                                </div>
+
+                                {task.assignedTools.length > 0 && (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs text-muted-foreground">MCP Tools:</span>
+                                    {task.assignedTools.map((toolId) => {
+                                      const tool = mockMCPTools.find((t) => t.id === toolId)
+                                      return tool ? (
+                                        <Badge key={toolId} variant="secondary" className="text-xs">
+                                          {tool.icon}
+                                          <span className="ml-1">{tool.name}</span>
+                                        </Badge>
+                                      ) : null
+                                    })}
+                                  </div>
+                                )}
                               </div>
                             </div>
-                          )
-                        })}
-                      </div>
-                      <div className="flex justify-end">
-                        <Button onClick={() => setShowToolDialog(false)}>Done</Button>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* MCP Tool Selection Dialog */}
+      <Dialog open={showToolSelectionDialog} onOpenChange={setShowToolSelectionDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select MCP Tools</DialogTitle>
+            <DialogDescription>Choose MCP tools to assign to this task for automated execution</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {mockMCPTools.map((tool) => {
+              const selectedTask = todoTasks.find((t) => t.id === selectedTaskId)
+              const isSelected = selectedTask?.assignedTools.includes(tool.id) || false
+
+              return (
+                <Card
+                  key={tool.id}
+                  className={`cursor-pointer transition-all hover:shadow-md ${
+                    isSelected ? "border-blue-500 bg-blue-50" : ""
+                  }`}
+                  onClick={() => handleToolSelection(selectedTaskId, tool.id)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1">{tool.icon}</div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium">{tool.name}</h4>
+                          <Badge variant="outline" className={getToolCategoryColor(tool.category)}>
+                            {tool.category}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">{tool.description}</p>
+                        <div className="text-xs text-muted-foreground">
+                          <div>Endpoint: {tool.serverEndpoint}</div>
+                          <div>Parameters: {tool.parameters.join(", ")}</div>
+                        </div>
                       </div>
                     </div>
-                  </DialogContent>
-                </Dialog>
-              </>
-            ) : (
-              <Card className="h-96 flex items-center justify-center">
-                <div className="text-center space-y-4">
-                  <Bot className="w-16 h-16 mx-auto text-muted-foreground" />
-                  <div>
-                    <h3 className="text-lg font-medium">Ready to Analyze</h3>
-                    <p className="text-muted-foreground">
-                      Enter a Confluence wiki URL to extract actionable TODO lists with MCP tool integration
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            )}
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
-        </div>
-      </div>
+          <div className="flex justify-end">
+            <Button onClick={() => setShowToolSelectionDialog(false)}>Done</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
