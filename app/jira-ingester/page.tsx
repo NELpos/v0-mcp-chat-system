@@ -1,447 +1,427 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Progress } from "@/components/ui/progress"
+import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { AlertCircle, CheckCircle2, Database, Download, Filter, RefreshCw } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Database, Download, Play, CheckCircle, AlertCircle, Clock, Users, FileText } from "lucide-react"
 
 // Mock Jira ticket data
 const mockJiraTickets = [
   {
     id: "SEC-1001",
-    summary: "Suspicious login attempt detected from unauthorized IP",
+    summary: "Suspicious login attempts from multiple IP addresses",
     status: "Open",
     priority: "High",
-    assignee: "Kim Minjun",
-    created: "2023-07-15T08:23:45",
-    updated: "2023-07-15T09:12:30",
-    reporter: "Security Monitoring System",
-    description: "Multiple failed login attempts detected from IP 203.0.113.42 which is not in the allowed range.",
+    assignee: "John Smith",
+    created: "2024-01-15T10:30:00Z",
+    description: "Multiple failed login attempts detected from different geographical locations",
   },
   {
     id: "SEC-1002",
-    summary: "Malware detected on workstation WS-42",
+    summary: "Malware detected on endpoint device",
     status: "In Progress",
     priority: "Critical",
-    assignee: "Park Jiwon",
-    created: "2023-07-14T14:05:22",
-    updated: "2023-07-15T10:45:12",
-    reporter: "Endpoint Protection",
-    description:
-      "Trojan.Emotet variant detected on workstation WS-42. Initial quarantine successful but further investigation required.",
+    assignee: "Sarah Johnson",
+    created: "2024-01-15T09:15:00Z",
+    description: "Endpoint protection software detected potential malware on user workstation",
   },
   {
     id: "SEC-1003",
-    summary: "Firewall rule change request for new application server",
+    summary: "Phishing email reported by user",
     status: "Resolved",
     priority: "Medium",
-    assignee: "Lee Seunghoon",
-    created: "2023-07-10T09:30:00",
-    updated: "2023-07-14T16:22:18",
-    reporter: "Jung Hyejin",
-    description: "Need to open port 8443 for new application server (10.0.5.23) to communicate with payment gateway.",
+    assignee: "Mike Davis",
+    created: "2024-01-14T16:45:00Z",
+    description: "User reported suspicious email with potential phishing content",
   },
   {
     id: "SEC-1004",
-    summary: "Data exfiltration attempt blocked",
-    status: "Closed",
-    priority: "High",
-    assignee: "Kim Minjun",
-    created: "2023-07-08T22:17:36",
-    updated: "2023-07-13T11:05:27",
-    reporter: "DLP System",
-    description:
-      "Attempted upload of sensitive financial documents to unauthorized cloud storage service. User: jsmith@company.com",
+    summary: "Unauthorized access attempt to database",
+    status: "Open",
+    priority: "Critical",
+    assignee: "Lisa Chen",
+    created: "2024-01-14T14:20:00Z",
+    description: "Database access logs show unauthorized connection attempts",
   },
   {
     id: "SEC-1005",
-    summary: "SSL certificate expiring for customer portal",
-    status: "Open",
-    priority: "Medium",
-    assignee: "Unassigned",
-    created: "2023-07-15T07:00:12",
-    updated: "2023-07-15T07:00:12",
-    reporter: "Monitoring System",
-    description: "SSL certificate for customer.company.com will expire in 14 days. Renewal required.",
+    summary: "VPN connection issues for remote users",
+    status: "Closed",
+    priority: "Low",
+    assignee: "Tom Wilson",
+    created: "2024-01-13T11:30:00Z",
+    description: "Multiple users reporting VPN connectivity problems",
   },
 ]
 
-// Generate more mock data for pagination and chunking demonstration
-const generateMoreMockData = (count: number) => {
-  const result = [...mockJiraTickets]
-  for (let i = 0; i < count - mockJiraTickets.length; i++) {
-    const baseTicket = mockJiraTickets[i % mockJiraTickets.length]
-    const ticketNumber = 1006 + i
-    result.push({
-      ...baseTicket,
-      id: `SEC-${ticketNumber}`,
-      summary: `${baseTicket.summary} (${ticketNumber})`,
-      created: new Date(Date.now() - Math.random() * 10 * 24 * 60 * 60 * 1000).toISOString(),
-      updated: new Date(Date.now() - Math.random() * 5 * 24 * 60 * 60 * 1000).toISOString(),
-    })
-  }
-  return result
-}
-
 export default function JiraIngesterPage() {
   const [jql, setJql] = useState('project = "SEC" AND created &gt;= -30d ORDER BY created DESC')
-  const [chunkSize, setChunkSize] = useState(50)
+  const [chunkSize, setChunkSize] = useState([50])
   const [isIngesting, setIsIngesting] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentChunk, setCurrentChunk] = useState(0)
   const [totalChunks, setTotalChunks] = useState(0)
-  const [ingestedTickets, setIngestedTickets] = useState<any[]>([])
-  const [showResults, setShowResults] = useState(false)
-  const [activeTab, setActiveTab] = useState("ingestion")
-  const [totalTickets, setTotalTickets] = useState(0)
-  const [error, setError] = useState("")
+  const [ingestedTickets, setIngestedTickets] = useState<typeof mockJiraTickets>([])
+  const [ingestionComplete, setIngestionComplete] = useState(false)
+  const [activeTab, setActiveTab] = useState("configuration")
 
-  // Handle JQL input change
-  const handleJqlChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setJql(e.target.value)
-  }
-
-  // Handle chunk size change
-  const handleChunkSizeChange = (value: number[]) => {
-    setChunkSize(value[0])
-  }
-
-  // Start ingestion process
-  const startIngestion = async () => {
+  const handleIngest = async () => {
     if (!jql.trim()) {
-      setError("JQL query cannot be empty")
+      alert("Please enter a JQL query")
       return
     }
 
-    setError("")
     setIsIngesting(true)
     setProgress(0)
-    setCurrentChunk(0)
-    setIngestedTickets([])
-    setShowResults(false)
+    setIngestionComplete(false)
+    setActiveTab("results")
 
-    try {
-      // Simulate API call to get total count
+    // Simulate API call and chunking
+    const totalTickets = mockJiraTickets.length
+    const chunks = Math.ceil(totalTickets / chunkSize[0])
+    setTotalChunks(chunks)
+
+    const allTickets = []
+
+    for (let i = 0; i < chunks; i++) {
+      setCurrentChunk(i + 1)
+
+      // Simulate chunk processing time
       await new Promise((resolve) => setTimeout(resolve, 1500))
-      const mockTotalTickets = 120 // Mock total tickets count
-      setTotalTickets(mockTotalTickets)
 
-      const mockTotalChunks = Math.ceil(mockTotalTickets / chunkSize)
-      setTotalChunks(mockTotalChunks)
+      // Get tickets for this chunk
+      const startIndex = i * chunkSize[0]
+      const endIndex = Math.min(startIndex + chunkSize[0], totalTickets)
+      const chunkTickets = mockJiraTickets.slice(startIndex, endIndex)
 
-      // Generate all mock data upfront
-      const allMockData = generateMoreMockData(mockTotalTickets)
+      allTickets.push(...chunkTickets)
+      setIngestedTickets([...allTickets])
 
-      // Process each chunk
-      for (let i = 0; i < mockTotalChunks; i++) {
-        setCurrentChunk(i + 1)
-
-        // Simulate API call for each chunk
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // Get chunk data
-        const startIdx = i * chunkSize
-        const endIdx = Math.min(startIdx + chunkSize, mockTotalTickets)
-        const chunkData = allMockData.slice(startIdx, endIdx)
-
-        // Update ingested tickets
-        setIngestedTickets((prev) => [...prev, ...chunkData])
-
-        // Update progress
-        const newProgress = Math.round(((i + 1) / mockTotalChunks) * 100)
-        setProgress(newProgress)
-      }
-
-      // Complete ingestion
-      setIsIngesting(false)
-      setShowResults(true)
-      setActiveTab("results")
-    } catch (err) {
-      setError("An error occurred during ingestion. Please try again.")
-      setIsIngesting(false)
+      // Update progress
+      const progressValue = ((i + 1) / chunks) * 100
+      setProgress(progressValue)
     }
-  }
 
-  // Reset the form
-  const resetForm = () => {
-    setJql('project = "SEC" AND created &gt;= -30d ORDER BY created DESC')
-    setChunkSize(50)
     setIsIngesting(false)
-    setProgress(0)
-    setCurrentChunk(0)
-    setTotalChunks(0)
-    setIngestedTickets([])
-    setShowResults(false)
-    setError("")
+    setIngestionComplete(true)
   }
 
-  // Get status badge color
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "open":
-        return "bg-blue-500"
-      case "in progress":
-        return "bg-yellow-500"
-      case "resolved":
-        return "bg-green-500"
-      case "closed":
-        return "bg-gray-500"
-      default:
-        return "bg-gray-300"
-    }
-  }
-
-  // Get priority badge color
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
       case "critical":
-        return "bg-red-600"
+        return "destructive"
       case "high":
-        return "bg-red-400"
+        return "destructive"
       case "medium":
-        return "bg-yellow-400"
+        return "default"
       case "low":
-        return "bg-green-400"
+        return "secondary"
       default:
-        return "bg-gray-300"
+        return "outline"
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "open":
+        return "destructive"
+      case "in progress":
+        return "default"
+      case "resolved":
+        return "secondary"
+      case "closed":
+        return "outline"
+      default:
+        return "outline"
     }
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Jira Event Ingester</h1>
-        <Button variant="outline" onClick={resetForm} className="flex items-center gap-2 bg-transparent">
-          <RefreshCw className="h-4 w-4" /> Reset
-        </Button>
+        <div>
+          <h1 className="text-3xl font-bold">Jira Event Ingester</h1>
+          <p className="text-muted-foreground">
+            Collect and store Jira tickets using JQL queries with configurable chunk processing
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Database className="h-8 w-8 text-blue-600" />
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="ingestion">Ingestion Configuration</TabsTrigger>
-          <TabsTrigger value="results" disabled={!showResults}>
-            Results {showResults && `(${ingestedTickets.length})`}
-          </TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          <TabsTrigger value="results">Results</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="ingestion" className="space-y-4">
+        <TabsContent value="configuration" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Jira Query Configuration</CardTitle>
-              <CardDescription>Enter your JQL (Jira Query Language) to fetch specific tickets</CardDescription>
+              <CardTitle>JQL Configuration</CardTitle>
+              <CardDescription>Enter your Jira Query Language (JQL) to specify which tickets to ingest</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
               <div className="space-y-2">
                 <Label htmlFor="jql">JQL Query</Label>
                 <Textarea
                   id="jql"
-                  value={jql}
-                  onChange={handleJqlChange}
                   placeholder="Enter your JQL query here..."
-                  className="min-h-[100px]"
-                  disabled={isIngesting}
+                  value={jql}
+                  onChange={(e) => setJql(e.target.value)}
+                  rows={4}
+                  className="font-mono text-sm"
                 />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Example: project = "SEC" AND created &gt;= -30d ORDER BY created DESC
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="chunk-size">Chunk Size: {chunkSize}</Label>
-                  <span className="text-sm text-muted-foreground">(Tickets per batch)</span>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Chunk Size: {chunkSize[0]} tickets per chunk</Label>
+                  <Slider
+                    value={chunkSize}
+                    onValueChange={setChunkSize}
+                    max={100}
+                    min={10}
+                    step={10}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Adjust chunk size for processing large datasets. Smaller chunks reduce memory usage but increase
+                    processing time.
+                  </p>
                 </div>
-                <Slider
-                  id="chunk-size"
-                  defaultValue={[chunkSize]}
-                  max={100}
-                  min={10}
-                  step={10}
-                  onValueChange={handleChunkSizeChange}
-                  disabled={isIngesting}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Adjust chunk size for large data sets to optimize performance
-                </p>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleIngest}
+                  disabled={isIngesting || !jql.trim()}
+                  className="flex items-center gap-2"
+                >
+                  <Play className="h-4 w-4" />
+                  {isIngesting ? "Ingesting..." : "Start Ingestion"}
+                </Button>
               </div>
             </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button variant="outline" onClick={resetForm} disabled={isIngesting}>
-                Clear
-              </Button>
-              <Button onClick={startIngestion} disabled={isIngesting}>
-                {isIngesting ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Ingesting...
-                  </>
-                ) : (
-                  <>
-                    <Database className="mr-2 h-4 w-4" />
-                    Start Ingestion
-                  </>
-                )}
-              </Button>
-            </CardFooter>
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Ingestion Preview</CardTitle>
+              <CardDescription>Preview of the ingestion process configuration</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <div className="font-medium">Query Length</div>
+                    <div className="text-sm text-muted-foreground">{jql.length} characters</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Database className="h-5 w-5 text-green-600" />
+                  <div>
+                    <div className="font-medium">Chunk Size</div>
+                    <div className="text-sm text-muted-foreground">{chunkSize[0]} tickets</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-orange-600" />
+                  <div>
+                    <div className="font-medium">Est. Chunks</div>
+                    <div className="text-sm text-muted-foreground">
+                      {Math.ceil(mockJiraTickets.length / chunkSize[0])} chunks
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="results" className="space-y-6">
           {isIngesting && (
             <Card>
               <CardHeader>
-                <CardTitle>Ingestion Progress</CardTitle>
-                <CardDescription>
-                  Processing chunk {currentChunk} of {totalChunks}
-                </CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5 animate-pulse text-blue-600" />
+                  Ingestion in Progress
+                </CardTitle>
+                <CardDescription>Processing Jira tickets in chunks of {chunkSize[0]}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Progress value={progress} className="h-2" />
-                <div className="flex justify-between text-sm">
-                  <span>{progress}% Complete</span>
-                  <span>
-                    {ingestedTickets.length} of {totalTickets} tickets ingested
-                  </span>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Progress</span>
+                    <span>{Math.round(progress)}%</span>
+                  </div>
+                  <Progress value={progress} className="w-full" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Current Chunk:</span>
+                    <span className="ml-2 font-medium">
+                      {currentChunk} of {totalChunks}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Tickets Processed:</span>
+                    <span className="ml-2 font-medium">{ingestedTickets.length}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Status:</span>
+                    <span className="ml-2 font-medium text-blue-600">Processing...</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           )}
-        </TabsContent>
 
-        <TabsContent value="results" className="space-y-4">
-          {showResults && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Ingestion Summary</CardTitle>
-                  <CardDescription>Results of your Jira ticket ingestion</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold">{ingestedTickets.length}</div>
-                          <p className="text-xs text-muted-foreground">Total Tickets</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold">
-                            {ingestedTickets.filter((t) => t.priority === "High" || t.priority === "Critical").length}
-                          </div>
-                          <p className="text-xs text-muted-foreground">High Priority</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold">
-                            {ingestedTickets.filter((t) => t.status === "Open" || t.status === "In Progress").length}
-                          </div>
-                          <p className="text-xs text-muted-foreground">Open Tickets</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold">
-                            {ingestedTickets.filter((t) => !t.assignee || t.assignee === "Unassigned").length}
-                          </div>
-                          <p className="text-xs text-muted-foreground">Unassigned</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-green-500" />
-                      <span className="text-sm font-medium">
-                        Successfully ingested {ingestedTickets.length} tickets in {totalChunks} chunks
-                      </span>
-                    </div>
-                    <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
-                      <Download className="h-4 w-4" />
-                      Export Results
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Ingested Tickets</CardTitle>
-                  <CardDescription>Showing {ingestedTickets.length} tickets from your query</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>ID</TableHead>
-                          <TableHead>Summary</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Priority</TableHead>
-                          <TableHead>Assignee</TableHead>
-                          <TableHead>Created</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ingestedTickets.slice(0, 10).map((ticket) => (
-                          <TableRow key={ticket.id}>
-                            <TableCell className="font-medium">{ticket.id}</TableCell>
-                            <TableCell className="max-w-xs truncate">{ticket.summary}</TableCell>
-                            <TableCell>
-                              <Badge className={getStatusColor(ticket.status)}>{ticket.status}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={getPriorityColor(ticket.priority)}>{ticket.priority}</Badge>
-                            </TableCell>
-                            <TableCell>{ticket.assignee || "Unassigned"}</TableCell>
-                            <TableCell className="text-sm">{new Date(ticket.created).toLocaleDateString()}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                      <TableCaption>
-                        {ingestedTickets.length > 10
-                          ? `Showing 10 of ${ingestedTickets.length} tickets`
-                          : `Showing all ${ingestedTickets.length} tickets`}
-                      </TableCaption>
-                    </Table>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    <span className="text-sm text-muted-foreground">Use filters to narrow down results</span>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => setActiveTab("ingestion")}>
-                    Back to Configuration
+          {ingestionComplete && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  Ingestion Complete
+                </CardTitle>
+                <CardDescription>
+                  Successfully ingested {ingestedTickets.length} tickets in {totalChunks} chunks
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-end">
+                  <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+                    <Download className="h-4 w-4" />
+                    Export Results
                   </Button>
-                </CardFooter>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Summary Statistics */}
+          {ingestedTickets.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-8 w-8 text-blue-600" />
+                    <div>
+                      <div className="text-2xl font-bold">{ingestedTickets.length}</div>
+                      <div className="text-sm text-muted-foreground">Total Tickets</div>
+                    </div>
+                  </div>
+                </CardContent>
               </Card>
-            </>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-8 w-8 text-red-600" />
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {ingestedTickets.filter((t) => t.priority === "Critical" || t.priority === "High").length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">High Priority</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-8 w-8 text-orange-600" />
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {ingestedTickets.filter((t) => t.status === "Open" || t.status === "In Progress").length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Open Tickets</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-8 w-8 text-green-600" />
+                    <div>
+                      <div className="text-2xl font-bold">{new Set(ingestedTickets.map((t) => t.assignee)).size}</div>
+                      <div className="text-sm text-muted-foreground">Assignees</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Ingested Tickets Table */}
+          {ingestedTickets.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Ingested Tickets</CardTitle>
+                <CardDescription>List of tickets successfully ingested from Jira</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Ticket ID</TableHead>
+                      <TableHead>Summary</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Assignee</TableHead>
+                      <TableHead>Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ingestedTickets.map((ticket) => (
+                      <TableRow key={ticket.id}>
+                        <TableCell className="font-mono">{ticket.id}</TableCell>
+                        <TableCell className="max-w-xs truncate">{ticket.summary}</TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusColor(ticket.status)}>{ticket.status}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getPriorityColor(ticket.priority)}>{ticket.priority}</Badge>
+                        </TableCell>
+                        <TableCell>{ticket.assignee}</TableCell>
+                        <TableCell>{new Date(ticket.created).toLocaleDateString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {!isIngesting && ingestedTickets.length === 0 && (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Database className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Data Ingested</h3>
+                <p className="text-muted-foreground mb-4">
+                  Configure your JQL query and start the ingestion process to see results here.
+                </p>
+                <Button onClick={() => setActiveTab("configuration")} variant="outline">
+                  Go to Configuration
+                </Button>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>
