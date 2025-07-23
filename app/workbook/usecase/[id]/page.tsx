@@ -5,6 +5,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { useEffect, useState } from "react"
+import { cn } from "@/lib/utils"
 import {
   ArrowLeft,
   ExternalLink,
@@ -22,6 +25,7 @@ import {
   Building,
   Tag,
   FileText,
+  List,
 } from "lucide-react"
 import {
   LineChart,
@@ -274,6 +278,29 @@ const mockUseCaseDetails = {
   },
 }
 
+// Table of Contents structure
+const tableOfContents = [
+  { id: "overview", title: "Overview", level: 1 },
+  { id: "details", title: "Details", level: 1 },
+  { id: "description", title: "Description", level: 2 },
+  { id: "use-case-information", title: "Use Case Information", level: 2 },
+  { id: "spl-query", title: "SPL Query", level: 2 },
+  { id: "drilldown-query", title: "Drilldown Query", level: 2 },
+  { id: "event-analytics", title: "Event Analytics", level: 2 },
+  { id: "monthly-trends", title: "Monthly Trends", level: 3 },
+  { id: "dwell-time-analytics", title: "Dwell Time Analytics", level: 2 },
+  { id: "dwell-time-comparison", title: "Dwell Time Comparison", level: 3 },
+  { id: "stage-breakdown", title: "Stage Breakdown", level: 3 },
+  { id: "recent-events", title: "Recent Events", level: 2 },
+  { id: "ai-summary", title: "AI Summary", level: 1 },
+  { id: "diagnostic-result", title: "Diagnostic Result", level: 2 },
+  { id: "observations", title: "Key Observations", level: 2 },
+  { id: "recommendations", title: "Recommendations", level: 2 },
+  { id: "strengths-weaknesses", title: "Strengths & Weaknesses", level: 2 },
+  { id: "playbooks", title: "Related Playbooks", level: 1 },
+  { id: "analysis-steps", title: "Analysis Steps", level: 2 },
+]
+
 const DwellTimeTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
   if (active && payload && payload.length) {
     const total = payload[0].payload.originalTotal
@@ -297,10 +324,91 @@ const DwellTimeTooltip = ({ active, payload, label }: TooltipProps<ValueType, Na
   return null
 }
 
+// Table of Contents Component
+function TableOfContents({ activeSection }: { activeSection: string }) {
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId)
+    if (element) {
+      element.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
+    }
+  }
+
+  return (
+    <div className="w-64">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center text-sm">
+            <List className="h-4 w-4 mr-2" />
+            Table of Contents
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[calc(100vh-200px)]">
+            <nav className="space-y-1">
+              {tableOfContents.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => scrollToSection(item.id)}
+                  className={cn(
+                    "block w-full text-left text-sm py-1.5 px-2 rounded-md transition-colors hover:bg-muted",
+                    item.level === 1 && "font-medium",
+                    item.level === 2 && "ml-3 text-muted-foreground",
+                    item.level === 3 && "ml-6 text-muted-foreground text-xs",
+                    activeSection === item.id && "bg-primary/10 text-primary font-medium",
+                  )}
+                >
+                  {item.title}
+                </button>
+              ))}
+            </nav>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// Hook for tracking active section
+function useActiveSection() {
+  const [activeSection, setActiveSection] = useState("")
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id)
+          }
+        })
+      },
+      {
+        rootMargin: "-20% 0px -80% 0px",
+        threshold: 0,
+      },
+    )
+
+    // Observe all sections
+    tableOfContents.forEach((item) => {
+      const element = document.getElementById(item.id)
+      if (element) {
+        observer.observe(element)
+      }
+    })
+
+    return () => observer.disconnect()
+  }, [])
+
+  return activeSection
+}
+
 export default function UseCaseDetailPage() {
   const params = useParams()
   const router = useRouter()
   const useCaseId = params.id as string
+  const activeSection = useActiveSection()
 
   const useCaseDetail = mockUseCaseDetails[useCaseId as keyof typeof mockUseCaseDetails]
 
@@ -421,601 +529,659 @@ export default function UseCaseDetailPage() {
   const aiSummary = generateAiSummary()
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Button variant="ghost" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Use Cases
-        </Button>
-      </div>
-
-      {/* Use Case Overview */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Badge variant="outline">{useCaseDetail.id}</Badge>
-                <Badge className={getSeverityColor(useCaseDetail.severity)}>{useCaseDetail.severity}</Badge>
-                <Badge variant="secondary">{useCaseDetail.category}</Badge>
-                <Badge variant={useCaseDetail.status === "Active" ? "default" : "secondary"}>
-                  {useCaseDetail.status}
-                </Badge>
-              </div>
-              <CardTitle className="text-2xl">{useCaseDetail.title}</CardTitle>
-            </div>
-            <Button variant="outline" size="sm">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              {useCaseDetail.jiraTicket}
+    <div className="container mx-auto p-6">
+      <div className="flex gap-6">
+        {/* Main Content */}
+        <div className="flex-1 space-y-6">
+          {/* Header */}
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Use Cases
             </Button>
           </div>
-          <CardDescription>Last updated: {useCaseDetail.lastUpdated}</CardDescription>
-        </CardHeader>
-      </Card>
 
-      {/* Tabs */}
-      <Tabs defaultValue="details" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="ai-summary">AI Summary</TabsTrigger>
-          <TabsTrigger value="playbooks">Related Playbooks</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="details" className="space-y-6">
-          {/* Description Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Description</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground leading-relaxed">{useCaseDetail.description}</p>
-            </CardContent>
-          </Card>
-
-          {/* Additional Fields Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Use Case Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Reporter */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <label className="text-sm font-medium">Reporter</label>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{useCaseDetail.reporter}</p>
-                </div>
-
-                {/* Use Case Code */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Code className="h-4 w-4 text-muted-foreground" />
-                    <label className="text-sm font-medium">Use Case Code</label>
-                  </div>
-                  <Badge variant="outline" className="font-mono">
-                    {useCaseDetail.usecase_code}
-                  </Badge>
-                </div>
-
-                {/* Severity */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                    <label className="text-sm font-medium">Severity</label>
-                  </div>
-                  <Badge className={getSeverityColor(useCaseDetail.severity)}>{useCaseDetail.severity}</Badge>
-                </div>
-
-                {/* Reporter Name */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <label className="text-sm font-medium">Reporter Name</label>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{useCaseDetail.reporterName}</p>
-                </div>
-
-                {/* Source Type */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <label className="text-sm font-medium">Source Type</label>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{useCaseDetail.sourceType}</p>
-                </div>
-
-                {/* Ticket ID */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Tag className="h-4 w-4 text-muted-foreground" />
-                    <label className="text-sm font-medium">Ticket ID</label>
-                  </div>
-                  <Badge variant="outline">{useCaseDetail.ticketId}</Badge>
-                </div>
-              </div>
-
-              {/* Project Labels */}
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Tag className="h-4 w-4 text-muted-foreground" />
-                  <label className="text-sm font-medium">Project Labels</label>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {useCaseDetail.projectLabels.map((label, index) => (
-                    <Badge key={index} variant="secondary">
-                      {label}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              {/* Organization */}
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                  <label className="text-sm font-medium">Organization</label>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {useCaseDetail.organization.map((org, index) => (
-                    <Badge key={index} variant="outline">
-                      {org}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* SPL Query Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Code className="h-5 w-5 mr-2" />
-                SPL Query
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                <code>{useCaseDetail.splQuery}</code>
-              </pre>
-            </CardContent>
-          </Card>
-
-          {/* Drilldown Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Search className="h-5 w-5 mr-2" />
-                Drilldown Query
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                <code>{useCaseDetail.drilldownQuery}</code>
-              </pre>
-            </CardContent>
-          </Card>
-
-          {/* Event Analytics Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Event Analytics</CardTitle>
-              <CardDescription>Performance metrics and trends for this use case</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Events</CardTitle>
-                    <Activity className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{useCaseDetail.eventAnalytics.totalEvents}</div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">True Positives</CardTitle>
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-green-600">
-                      {useCaseDetail.eventAnalytics.truePositives}
+          {/* Use Case Overview */}
+          <section id="overview">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="outline">{useCaseDetail.id}</Badge>
+                      <Badge className={getSeverityColor(useCaseDetail.severity)}>{useCaseDetail.severity}</Badge>
+                      <Badge variant="secondary">{useCaseDetail.category}</Badge>
+                      <Badge variant={useCaseDetail.status === "Active" ? "default" : "secondary"}>
+                        {useCaseDetail.status}
+                      </Badge>
                     </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">False Positives</CardTitle>
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-red-600">{useCaseDetail.eventAnalytics.falsePositives}</div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Accuracy</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{useCaseDetail.eventAnalytics.accuracy}%</div>
-                    <Progress value={useCaseDetail.eventAnalytics.accuracy} className="mt-2" />
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Monthly Trend Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Monthly True/False Positive Trends</CardTitle>
-                  <CardDescription>Comparison of true positives vs false positives over time</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={useCaseDetail.eventAnalytics.monthlyTrends}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Line
-                          type="monotone"
-                          dataKey="truePositives"
-                          stroke="#22c55e"
-                          strokeWidth={2}
-                          name="True Positives"
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="falsePositives"
-                          stroke="#ef4444"
-                          strokeWidth={2}
-                          name="False Positives"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <CardTitle className="text-2xl">{useCaseDetail.title}</CardTitle>
                   </div>
-                </CardContent>
-              </Card>
-            </CardContent>
-          </Card>
+                  <Button variant="outline" size="sm">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    {useCaseDetail.jiraTicket}
+                  </Button>
+                </div>
+                <CardDescription>Last updated: {useCaseDetail.lastUpdated}</CardDescription>
+              </CardHeader>
+            </Card>
+          </section>
 
-          {/* Dwell Time Analytics Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Dwell Time Analytics</CardTitle>
-              <CardDescription>Response time analysis and stage breakdown</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Average Dwell Time</CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {useCaseDetail.eventAnalytics.dwellTimeAnalytics.averageDwellTime}h
-                    </div>
-                    <p className="text-xs text-muted-foreground">End-to-end response time</p>
-                  </CardContent>
-                </Card>
+          {/* Tabs */}
+          <Tabs defaultValue="details" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="ai-summary">AI Summary</TabsTrigger>
+              <TabsTrigger value="playbooks">Related Playbooks</TabsTrigger>
+            </TabsList>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Longest Dwell Time</CardTitle>
-                    <Activity className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{maxDwellTime.toFixed(2)}h</div>
-                    <p className="text-xs text-muted-foreground">Baseline for normalization</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Efficiency Score</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {(
-                        (useCaseDetail.eventAnalytics.dwellTimeAnalytics.averageMitigationTime /
-                          useCaseDetail.eventAnalytics.dwellTimeAnalytics.averageDwellTime) *
-                        100
-                      ).toFixed(1)}
-                      %
-                    </div>
-                    <p className="text-xs text-muted-foreground">Mitigation vs Total Time</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Normalized Dwell Time Comparison Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Normalized Dwell Time Comparison</CardTitle>
-                  <CardDescription>
-                    Relative Dwell Time of events compared to the longest event ({maxDwellTime.toFixed(2)}h)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart layout="vertical" data={normalizedDwellTimeData} margin={{ right: 30 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                          type="number"
-                          domain={[0, 1]}
-                          tickFormatter={(tick) => `${(tick * 100).toFixed(0)}%`}
-                          label={{ value: "Normalized Dwell Time", position: "insideBottom", dy: 10 }}
-                        />
-                        <YAxis dataKey="eventId" type="category" width={80} />
-                        <Tooltip content={<DwellTimeTooltip />} />
-                        <Legend />
-                        {dwellTimeStageColors.map((stage) => (
-                          <Bar key={stage.key} dataKey={stage.key} stackId="a" name={stage.name} fill={stage.color} />
-                        ))}
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Stage Breakdown Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Average Dwell Time Stage Breakdown</CardTitle>
-                  <CardDescription>
-                    Average time distribution across different stages of event processing
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={Object.entries(useCaseDetail.eventAnalytics.dwellTimeAnalytics.stageBreakdown).map(
-                            ([name, value]) => ({ name, value }),
-                          )}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) =>
-                            `${name.replace(/([A-Z])/g, " $1")}: ${(percent * 100).toFixed(0)}%`
-                          }
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {Object.keys(useCaseDetail.eventAnalytics.dwellTimeAnalytics.stageBreakdown).map(
-                            (key, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={dwellTimeStageColors.find((s) => s.key === key)?.color || "#8884d8"}
-                              />
-                            ),
-                          )}
-                        </Pie>
-                        <Tooltip formatter={(value) => [`${(value as number).toFixed(2)}h`, "Average Duration"]} />
-                        <Legend
-                          formatter={(value, entry) => (
-                            <span style={{ color: entry.color }}>{value.replace(/([A-Z])/g, " $1")}</span>
-                          )}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            </CardContent>
-          </Card>
-
-          {/* Recent Events Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Events</CardTitle>
-              <CardDescription>Latest security events detected by this use case</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {useCaseDetail.recentEvents.map((event) => (
-                  <div key={event.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline">{event.id}</Badge>
-                        <span className="text-sm text-muted-foreground">{event.timestamp}</span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="font-medium">Source IP:</span> {event.sourceIp}
-                        <span className="mx-2">|</span>
-                        <span className="font-medium">Target:</span> {event.targetUser}
-                        <span className="mx-2">|</span>
-                        <span className="font-medium">Attempts:</span> {event.attempts}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Analyst: {event.analyst}</div>
-                    </div>
-                    <Badge
-                      variant={
-                        event.status === "True Positive"
-                          ? "destructive"
-                          : event.status === "False Positive"
-                            ? "secondary"
-                            : "default"
-                      }
-                    >
-                      {event.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="ai-summary" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Bot className="h-6 w-6 mr-2" />
-                AI Diagnostic Assessment
-              </CardTitle>
-              <CardDescription>
-                Automated analysis of this use case's performance metrics to identify opportunities for fine-tuning and
-                automation.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <Card className="bg-muted/50">
-                <CardHeader>
-                  <CardTitle>Diagnostic Result</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Badge variant={aiSummary.resultVariant} className="text-lg px-4 py-2">
-                    {aiSummary.result}
-                  </Badge>
-                </CardContent>
-              </Card>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Key Observations</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2 list-disc list-inside">
-                      {aiSummary.findings.map((finding, i) => (
-                        <li key={i}>{finding}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Actionable Recommendations</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2 list-disc list-inside">
-                      {aiSummary.recommendations.map((rec, i) => (
-                        <li key={i}>{rec}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center text-green-600">
-                      <ThumbsUp className="h-5 w-5 mr-2" />
-                      Strengths
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2 list-disc list-inside">
-                      {aiSummary.strengths.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center text-red-600">
-                      <ThumbsDown className="h-5 w-5 mr-2" />
-                      Areas for Improvement
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2 list-disc list-inside">
-                      {aiSummary.weaknesses.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="playbooks" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Related Playbooks</CardTitle>
-              <CardDescription>Incident response procedures for this use case</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {useCaseDetail.relatedPlaybooks.map((playbook) => (
-                  <Card key={playbook.id} className="hover:shadow-md transition-shadow">
+            <TabsContent value="details" className="space-y-6">
+              <section id="details">
+                {/* Description Section */}
+                <section id="description">
+                  <Card>
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <Badge variant="outline">{playbook.id}</Badge>
-                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>{playbook.estimatedTime}</span>
-                        </div>
-                      </div>
-                      <CardTitle className="text-lg">{playbook.title}</CardTitle>
-                      <CardDescription>{playbook.description}</CardDescription>
+                      <CardTitle>Description</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-sm">Analysis Steps & TODO Items</h4>
-                        <div className="space-y-4">
-                          {playbook.analysisSteps.map((step) => (
-                            <Card key={step.step} className="border-l-4 border-l-primary">
-                              <CardContent className="pt-4">
-                                <div className="flex items-start space-x-3">
-                                  <div className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
-                                    {step.step}
-                                  </div>
-                                  <div className="flex-1 space-y-2">
-                                    <div>
-                                      <h5 className="font-medium">{step.title}</h5>
-                                      <p className="text-sm text-muted-foreground">{step.description}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <p className="text-sm font-medium">TODO Items:</p>
-                                      <ul className="space-y-1">
-                                        {step.todos.map((todo, index) => (
-                                          <li
-                                            key={index}
-                                            className="text-sm text-muted-foreground flex items-start space-x-2"
-                                          >
-                                            <span className="text-primary mt-1">•</span>
-                                            <span>{todo}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
+                      <p className="text-muted-foreground leading-relaxed">{useCaseDetail.description}</p>
+                    </CardContent>
+                  </Card>
+                </section>
+
+                {/* Additional Fields Section */}
+                <section id="use-case-information">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Use Case Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Reporter */}
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <label className="text-sm font-medium">Reporter</label>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{useCaseDetail.reporter}</p>
+                        </div>
+
+                        {/* Use Case Code */}
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Code className="h-4 w-4 text-muted-foreground" />
+                            <label className="text-sm font-medium">Use Case Code</label>
+                          </div>
+                          <Badge variant="outline" className="font-mono">
+                            {useCaseDetail.usecase_code}
+                          </Badge>
+                        </div>
+
+                        {/* Severity */}
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                            <label className="text-sm font-medium">Severity</label>
+                          </div>
+                          <Badge className={getSeverityColor(useCaseDetail.severity)}>{useCaseDetail.severity}</Badge>
+                        </div>
+
+                        {/* Reporter Name */}
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <label className="text-sm font-medium">Reporter Name</label>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{useCaseDetail.reporterName}</p>
+                        </div>
+
+                        {/* Source Type */}
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <label className="text-sm font-medium">Source Type</label>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{useCaseDetail.sourceType}</p>
+                        </div>
+
+                        {/* Ticket ID */}
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Tag className="h-4 w-4 text-muted-foreground" />
+                            <label className="text-sm font-medium">Ticket ID</label>
+                          </div>
+                          <Badge variant="outline">{useCaseDetail.ticketId}</Badge>
+                        </div>
+                      </div>
+
+                      {/* Project Labels */}
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Tag className="h-4 w-4 text-muted-foreground" />
+                          <label className="text-sm font-medium">Project Labels</label>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {useCaseDetail.projectLabels.map((label, index) => (
+                            <Badge key={index} variant="secondary">
+                              {label}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Organization */}
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Building className="h-4 w-4 text-muted-foreground" />
+                          <label className="text-sm font-medium">Organization</label>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {useCaseDetail.organization.map((org, index) => (
+                            <Badge key={index} variant="outline">
+                              {org}
+                            </Badge>
                           ))}
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                </section>
+
+                {/* SPL Query Section */}
+                <section id="spl-query">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Code className="h-5 w-5 mr-2" />
+                        SPL Query
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+                        <code>{useCaseDetail.splQuery}</code>
+                      </pre>
+                    </CardContent>
+                  </Card>
+                </section>
+
+                {/* Drilldown Section */}
+                <section id="drilldown-query">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Search className="h-5 w-5 mr-2" />
+                        Drilldown Query
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+                        <code>{useCaseDetail.drilldownQuery}</code>
+                      </pre>
+                    </CardContent>
+                  </Card>
+                </section>
+
+                {/* Event Analytics Section */}
+                <section id="event-analytics">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Event Analytics</CardTitle>
+                      <CardDescription>Performance metrics and trends for this use case</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Summary Cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+                            <Activity className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{useCaseDetail.eventAnalytics.totalEvents}</div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">True Positives</CardTitle>
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold text-green-600">
+                              {useCaseDetail.eventAnalytics.truePositives}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">False Positives</CardTitle>
+                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold text-red-600">
+                              {useCaseDetail.eventAnalytics.falsePositives}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Accuracy</CardTitle>
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{useCaseDetail.eventAnalytics.accuracy}%</div>
+                            <Progress value={useCaseDetail.eventAnalytics.accuracy} className="mt-2" />
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Monthly Trend Chart */}
+                      <section id="monthly-trends">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Monthly True/False Positive Trends</CardTitle>
+                            <CardDescription>Comparison of true positives vs false positives over time</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="h-80">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={useCaseDetail.eventAnalytics.monthlyTrends}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="month" />
+                                  <YAxis />
+                                  <Tooltip />
+                                  <Legend />
+                                  <Line
+                                    type="monotone"
+                                    dataKey="truePositives"
+                                    stroke="#22c55e"
+                                    strokeWidth={2}
+                                    name="True Positives"
+                                  />
+                                  <Line
+                                    type="monotone"
+                                    dataKey="falsePositives"
+                                    stroke="#ef4444"
+                                    strokeWidth={2}
+                                    name="False Positives"
+                                  />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </section>
+                    </CardContent>
+                  </Card>
+                </section>
+
+                {/* Dwell Time Analytics Section */}
+                <section id="dwell-time-analytics">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Dwell Time Analytics</CardTitle>
+                      <CardDescription>Response time analysis and stage breakdown</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Summary Cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Average Dwell Time</CardTitle>
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">
+                              {useCaseDetail.eventAnalytics.dwellTimeAnalytics.averageDwellTime}h
+                            </div>
+                            <p className="text-xs text-muted-foreground">End-to-end response time</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Longest Dwell Time</CardTitle>
+                            <Activity className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{maxDwellTime.toFixed(2)}h</div>
+                            <p className="text-xs text-muted-foreground">Baseline for normalization</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Efficiency Score</CardTitle>
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">
+                              {(
+                                (useCaseDetail.eventAnalytics.dwellTimeAnalytics.averageMitigationTime /
+                                  useCaseDetail.eventAnalytics.dwellTimeAnalytics.averageDwellTime) *
+                                100
+                              ).toFixed(1)}
+                              %
+                            </div>
+                            <p className="text-xs text-muted-foreground">Mitigation vs Total Time</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Normalized Dwell Time Comparison Chart */}
+                      <section id="dwell-time-comparison">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Normalized Dwell Time Comparison</CardTitle>
+                            <CardDescription>
+                              Relative Dwell Time of events compared to the longest event ({maxDwellTime.toFixed(2)}h)
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="h-80">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart layout="vertical" data={normalizedDwellTimeData} margin={{ right: 30 }}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis
+                                    type="number"
+                                    domain={[0, 1]}
+                                    tickFormatter={(tick) => `${(tick * 100).toFixed(0)}%`}
+                                    label={{ value: "Normalized Dwell Time", position: "insideBottom", dy: 10 }}
+                                  />
+                                  <YAxis dataKey="eventId" type="category" width={80} />
+                                  <Tooltip content={<DwellTimeTooltip />} />
+                                  <Legend />
+                                  {dwellTimeStageColors.map((stage) => (
+                                    <Bar
+                                      key={stage.key}
+                                      dataKey={stage.key}
+                                      stackId="a"
+                                      name={stage.name}
+                                      fill={stage.color}
+                                    />
+                                  ))}
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </section>
+
+                      {/* Stage Breakdown Chart */}
+                      <section id="stage-breakdown">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Average Dwell Time Stage Breakdown</CardTitle>
+                            <CardDescription>
+                              Average time distribution across different stages of event processing
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="h-80">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={Object.entries(
+                                      useCaseDetail.eventAnalytics.dwellTimeAnalytics.stageBreakdown,
+                                    ).map(([name, value]) => ({ name, value }))}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={({ name, percent }) =>
+                                      `${name.replace(/([A-Z])/g, " $1")}: ${(percent * 100).toFixed(0)}%`
+                                    }
+                                    outerRadius={100}
+                                    fill="#8884d8"
+                                    dataKey="value"
+                                  >
+                                    {Object.keys(useCaseDetail.eventAnalytics.dwellTimeAnalytics.stageBreakdown).map(
+                                      (key, index) => (
+                                        <Cell
+                                          key={`cell-${index}`}
+                                          fill={dwellTimeStageColors.find((s) => s.key === key)?.color || "#8884d8"}
+                                        />
+                                      ),
+                                    )}
+                                  </Pie>
+                                  <Tooltip
+                                    formatter={(value) => [`${(value as number).toFixed(2)}h`, "Average Duration"]}
+                                  />
+                                  <Legend
+                                    formatter={(value, entry) => (
+                                      <span style={{ color: entry.color }}>{value.replace(/([A-Z])/g, " $1")}</span>
+                                    )}
+                                  />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </section>
+                    </CardContent>
+                  </Card>
+                </section>
+
+                {/* Recent Events Section */}
+                <section id="recent-events">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent Events</CardTitle>
+                      <CardDescription>Latest security events detected by this use case</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {useCaseDetail.recentEvents.map((event) => (
+                          <div key={event.id} className="flex items-center justify-between p-4 border rounded-lg">
+                            <div className="space-y-1">
+                              <div className="flex items-center space-x-2">
+                                <Badge variant="outline">{event.id}</Badge>
+                                <span className="text-sm text-muted-foreground">{event.timestamp}</span>
+                              </div>
+                              <div className="text-sm">
+                                <span className="font-medium">Source IP:</span> {event.sourceIp}
+                                <span className="mx-2">|</span>
+                                <span className="font-medium">Target:</span> {event.targetUser}
+                                <span className="mx-2">|</span>
+                                <span className="font-medium">Attempts:</span> {event.attempts}
+                              </div>
+                              <div className="text-sm text-muted-foreground">Analyst: {event.analyst}</div>
+                            </div>
+                            <Badge
+                              variant={
+                                event.status === "True Positive"
+                                  ? "destructive"
+                                  : event.status === "False Positive"
+                                    ? "secondary"
+                                    : "default"
+                              }
+                            >
+                              {event.status}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </section>
+              </section>
+            </TabsContent>
+
+            <TabsContent value="ai-summary" className="space-y-6">
+              <section id="ai-summary">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Bot className="h-6 w-6 mr-2" />
+                      AI Diagnostic Assessment
+                    </CardTitle>
+                    <CardDescription>
+                      Automated analysis of this use case's performance metrics to identify opportunities for
+                      fine-tuning and automation.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <section id="diagnostic-result">
+                      <Card className="bg-muted/50">
+                        <CardHeader>
+                          <CardTitle>Diagnostic Result</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <Badge variant={aiSummary.resultVariant} className="text-lg px-4 py-2">
+                            {aiSummary.result}
+                          </Badge>
+                        </CardContent>
+                      </Card>
+                    </section>
+
+                    <section id="observations">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Key Observations</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ul className="space-y-2 list-disc list-inside">
+                              {aiSummary.findings.map((finding, i) => (
+                                <li key={i}>{finding}</li>
+                              ))}
+                            </ul>
+                          </CardContent>
+                        </Card>
+                        <section id="recommendations">
+                          <Card>
+                            <CardHeader>
+                              <CardTitle>Actionable Recommendations</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <ul className="space-y-2 list-disc list-inside">
+                                {aiSummary.recommendations.map((rec, i) => (
+                                  <li key={i}>{rec}</li>
+                                ))}
+                              </ul>
+                            </CardContent>
+                          </Card>
+                        </section>
+                      </div>
+                    </section>
+
+                    <section id="strengths-weaknesses">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center text-green-600">
+                              <ThumbsUp className="h-5 w-5 mr-2" />
+                              Strengths
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ul className="space-y-2 list-disc list-inside">
+                              {aiSummary.strengths.map((item, i) => (
+                                <li key={i}>{item}</li>
+                              ))}
+                            </ul>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center text-red-600">
+                              <ThumbsDown className="h-5 w-5 mr-2" />
+                              Areas for Improvement
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ul className="space-y-2 list-disc list-inside">
+                              {aiSummary.weaknesses.map((item, i) => (
+                                <li key={i}>{item}</li>
+                              ))}
+                            </ul>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </section>
+                  </CardContent>
+                </Card>
+              </section>
+            </TabsContent>
+
+            <TabsContent value="playbooks" className="space-y-6">
+              <section id="playbooks">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Related Playbooks</CardTitle>
+                    <CardDescription>Incident response procedures for this use case</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {useCaseDetail.relatedPlaybooks.map((playbook) => (
+                        <Card key={playbook.id} className="hover:shadow-md transition-shadow">
+                          <CardHeader>
+                            <div className="flex items-center justify-between">
+                              <Badge variant="outline">{playbook.id}</Badge>
+                              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                <Clock className="h-4 w-4" />
+                                <span>{playbook.estimatedTime}</span>
+                              </div>
+                            </div>
+                            <CardTitle className="text-lg">{playbook.title}</CardTitle>
+                            <CardDescription>{playbook.description}</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              <h4 className="font-semibold text-sm">Analysis Steps & TODO Items</h4>
+                              <section id="analysis-steps">
+                                <div className="space-y-4">
+                                  {playbook.analysisSteps.map((step) => (
+                                    <Card key={step.step} className="border-l-4 border-l-primary">
+                                      <CardContent className="pt-4">
+                                        <div className="flex items-start space-x-3">
+                                          <div className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
+                                            {step.step}
+                                          </div>
+                                          <div className="flex-1 space-y-2">
+                                            <div>
+                                              <h5 className="font-medium">{step.title}</h5>
+                                              <p className="text-sm text-muted-foreground">{step.description}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <p className="text-sm font-medium">TODO Items:</p>
+                                              <ul className="space-y-1">
+                                                {step.todos.map((todo, index) => (
+                                                  <li
+                                                    key={index}
+                                                    className="text-sm text-muted-foreground flex items-start space-x-2"
+                                                  >
+                                                    <span className="text-primary mt-1">•</span>
+                                                    <span>{todo}</span>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  ))}
+                                </div>
+                              </section>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </section>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* Table of Contents - Right Side */}
+        <div className="sticky top-[4.5rem]">
+          <TableOfContents activeSection={activeSection} />
+        </div>
+      </div>
     </div>
   )
 }
